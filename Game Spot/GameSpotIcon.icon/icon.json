@@ -1,0 +1,72 @@
+{
+  "fill" : {
+    "solid" : "srgb:0.74945,0.77257,1.00000,1.00000"
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "glass" : false,
+          "image-name" : "trophy.fill 2.svg",
+          "name" : "trophy.fill 2",
+          "position" : {
+            "scale" : 19.1,
+            "translation-in-points" : [
+              0,
+              -101
+            ]
+          }
+        },
+        {
+          "fill" : {
+            "linear-gradient" : [
+              "display-p3:0.64643,0.69261,0.95857,1.00000",
+              "display-p3:0.29218,0.26399,0.77792,1.00000"
+            ],
+            "orientation" : {
+              "start" : {
+                "x" : 0.10754716981132076,
+                "y" : 0
+              },
+              "stop" : {
+                "x" : 0.6056603773584905,
+                "y" : 0.8236074270557029
+              }
+            }
+          },
+          "glass-specializations" : [
+            {
+              "idiom" : "square",
+              "value" : true
+            }
+          ],
+          "image-name" : "Vector.svg",
+          "name" : "Vector",
+          "position" : {
+            "scale" : 2.36,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : [
+      "iOS"
+    ]
+  }
+}

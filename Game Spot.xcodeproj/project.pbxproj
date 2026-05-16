@@ -6,6 +6,15 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		AF8D347A2F9FA7EC0049FF63 /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = AF8D34792F9FA7EC0049FF63 /* Auth */; };
+		AF8D347C2F9FA7EC0049FF63 /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = AF8D347B2F9FA7EC0049FF63 /* Functions */; };
+		AF8D347E2F9FA7EC0049FF63 /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = AF8D347D2F9FA7EC0049FF63 /* PostgREST */; };
+		AF8D34802F9FA7EC0049FF63 /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = AF8D347F2F9FA7EC0049FF63 /* Realtime */; };
+		AF8D34822F9FA7EC0049FF63 /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = AF8D34812F9FA7EC0049FF63 /* Storage */; };
+		AF8D34842F9FA7EC0049FF63 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = AF8D34832F9FA7EC0049FF63 /* Supabase */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		AF8D343F2F9F97F80049FF63 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -35,14 +44,14 @@
 			path = "Game Spot";
 			sourceTree = "<group>";
 		};
-		AF8D34412F9F97F80049FF63 /* Game SpotTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "Game SpotTests";
-			sourceTree = "<group>";
-		};
 		AF8D344B2F9F97F80049FF63 /* Game SpotUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "Game SpotUITests";
+			sourceTree = "<group>";
+		};
+		AFFB00012FAFF7000098B990 /* Game SpotTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "Game SpotTests";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -52,6 +61,12 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AF8D347E2F9FA7EC0049FF63 /* PostgREST in Frameworks */,
+				AF8D347C2F9FA7EC0049FF63 /* Functions in Frameworks */,
+				AF8D34842F9FA7EC0049FF63 /* Supabase in Frameworks */,
+				AF8D347A2F9FA7EC0049FF63 /* Auth in Frameworks */,
+				AF8D34822F9FA7EC0049FF63 /* Storage in Frameworks */,
+				AF8D34802F9FA7EC0049FF63 /* Realtime in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -76,8 +91,9 @@
 			isa = PBXGroup;
 			children = (
 				AF8D34332F9F97F40049FF63 /* Game Spot */,
-				AF8D34412F9F97F80049FF63 /* Game SpotTests */,
+				AFFB00012FAFF7000098B990 /* Game SpotTests */,
 				AF8D344B2F9F97F80049FF63 /* Game SpotUITests */,
+				AF8D34782F9FA7E50049FF63 /* Frameworks */,
 				AF8D34322F9F97F40049FF63 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -90,6 +106,13 @@
 				AF8D34482F9F97F80049FF63 /* Game SpotUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		AF8D34782F9FA7E50049FF63 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -112,6 +135,12 @@
 			);
 			name = "Game Spot";
 			packageProductDependencies = (
+				AF8D34792F9FA7EC0049FF63 /* Auth */,
+				AF8D347B2F9FA7EC0049FF63 /* Functions */,
+				AF8D347D2F9FA7EC0049FF63 /* PostgREST */,
+				AF8D347F2F9FA7EC0049FF63 /* Realtime */,
+				AF8D34812F9FA7EC0049FF63 /* Storage */,
+				AF8D34832F9FA7EC0049FF63 /* Supabase */,
 			);
 			productName = "Game Spot";
 			productReference = AF8D34312F9F97F40049FF63 /* Game Spot.app */;
@@ -131,7 +160,7 @@
 				AF8D34402F9F97F80049FF63 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				AF8D34412F9F97F80049FF63 /* Game SpotTests */,
+				AFFB00012FAFF7000098B990 /* Game SpotTests */,
 			);
 			name = "Game SpotTests";
 			packageProductDependencies = (
@@ -195,6 +224,9 @@
 			);
 			mainGroup = AF8D34282F9F97F40049FF63;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				AF8D34742F9FA6E90049FF63 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = AF8D34322F9F97F40049FF63 /* Products */;
 			projectDirPath = "";
@@ -374,6 +406,7 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 3;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -393,31 +426,41 @@
 		AF8D34532F9F97F80049FF63 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = GameSpotIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = QMH7VYM3CD;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Game-Spot-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Game Spot";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.kotyarya.Game-Spot";
+				PRODUCT_BUNDLE_IDENTIFIER = com.kotyarya.GameSpot;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -425,31 +468,42 @@
 		AF8D34542F9F97F80049FF63 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = GameSpotIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = QMH7VYM3CD;
 				ENABLE_PREVIEWS = YES;
+				GCC_OPTIMIZATION_LEVEL = 3;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Game-Spot-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Game Spot";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.kotyarya.Game-Spot";
+				PRODUCT_BUNDLE_IDENTIFIER = com.kotyarya.GameSpot;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
@@ -578,6 +632,50 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		AF8D34742F9FA6E90049FF63 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.5.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AF8D34792F9FA7EC0049FF63 /* Auth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AF8D34742F9FA6E90049FF63 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Auth;
+		};
+		AF8D347B2F9FA7EC0049FF63 /* Functions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AF8D34742F9FA6E90049FF63 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Functions;
+		};
+		AF8D347D2F9FA7EC0049FF63 /* PostgREST */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AF8D34742F9FA6E90049FF63 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = PostgREST;
+		};
+		AF8D347F2F9FA7EC0049FF63 /* Realtime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AF8D34742F9FA6E90049FF63 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Realtime;
+		};
+		AF8D34812F9FA7EC0049FF63 /* Storage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AF8D34742F9FA6E90049FF63 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Storage;
+		};
+		AF8D34832F9FA7EC0049FF63 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AF8D34742F9FA6E90049FF63 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = AF8D34292F9F97F40049FF63 /* Project object */;
 }
