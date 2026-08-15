@@ -114,13 +114,14 @@ final class ProfileSetupViewModel:
         userId: UUID
     ) async throws -> String? {
 
-        guard let image = avatarImage,
-              let data = image.jpegData(
-                compressionQuality: 0.8
-              ) else {
+        guard let image = avatarImage else {
 
             return nil
         }
+
+        let data = try AvatarImageEncoder.jpegData(
+            from: image
+        )
 
         let path =
             "\(userId)/avatar.jpg"
@@ -133,7 +134,8 @@ final class ProfileSetupViewModel:
                 path,
                 data: data,
                 options: FileOptions(
-                    contentType: "image/jpeg"
+                    contentType: "image/jpeg",
+                    upsert: true
                 )
             )
 
