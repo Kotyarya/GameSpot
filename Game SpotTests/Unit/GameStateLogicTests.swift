@@ -180,6 +180,32 @@ final class GameStateLogicTests: XCTestCase {
         )
     }
 
+    func testGameStatusReturnsMVPVotingBeforeFinishedLabel() {
+        let details = TestFixtures.gameDetails(
+            startsAt: now.addingTimeInterval(-3_600),
+            isFinished: true,
+            mvpVotingOpen: true
+        )
+
+        XCTAssertEqual(
+            GameSpotLogic.gameStatus(details: details, now: now),
+            "MVP Voting"
+        )
+    }
+
+    func testGameStatusReturnsCompletedAfterProcessing() {
+        let details = TestFixtures.gameDetails(
+            startsAt: now.addingTimeInterval(-3_600),
+            isFinished: true,
+            isProcessed: true
+        )
+
+        XCTAssertEqual(
+            GameSpotLogic.gameStatus(details: details, now: now),
+            "Completed"
+        )
+    }
+
     // MARK: - Countdown
 
     func testCountdownTextFormatsRemainingTime() {
@@ -331,7 +357,8 @@ final class GameStateLogicTests: XCTestCase {
 
         let titles = GameSpotLogic.groupedSectionTitles(
             for: games,
-            calendar: calendar
+            calendar: calendar,
+            now: now
         )
 
         XCTAssertEqual(titles.first, "Today")

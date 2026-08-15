@@ -129,6 +129,10 @@ enum TestFixtures {
         maxPlayers: Int = 10,
         joinedPlayers: Int = 4,
         isFinished: Bool = false,
+        isInProgress: Bool = false,
+        isProcessed: Bool = false,
+        mvpVotingOpen: Bool = false,
+        hasVoted: Bool = false,
         players: [Player]? = nil
     ) -> GameDetails {
         let roster = players ?? [
@@ -161,10 +165,10 @@ enum TestFixtures {
             "players": [\(playersJSON)],
             "is_joined": false,
             "mvp_player": null,
-            "is_in_progress": false,
-            "is_processed": false,
-            "mvp_voting_open": false,
-            "has_voted": false
+            "is_in_progress": \(isInProgress),
+            "is_processed": \(isProcessed),
+            "mvp_voting_open": \(mvpVotingOpen),
+            "has_voted": \(hasVoted)
         }
         """)
     }

@@ -85,6 +85,14 @@ enum GameSpotLogic {
             return "Open"
         }
 
+        if details.mvpVotingOpen {
+            return "MVP Voting"
+        }
+
+        if details.isProcessed {
+            return "Completed"
+        }
+
         if details.isFinished {
             return "Finished"
         }
@@ -188,17 +196,20 @@ enum GameSpotLogic {
 
     static func sectionTitle(
         for date: Date,
-        calendar: Calendar = .current
+        calendar: Calendar = .current,
+        now: Date = Date()
     ) -> String {
-        if calendar.isDateInToday(date) {
+        if calendar.isDate(date, inSameDayAs: now) {
             return "Today"
         }
 
-        if calendar.isDateInTomorrow(date) {
+        if let tomorrow = calendar.date(byAdding: .day, value: 1, to: now),
+           calendar.isDate(date, inSameDayAs: tomorrow) {
             return "Tomorrow"
         }
 
-        if calendar.isDateInYesterday(date) {
+        if let yesterday = calendar.date(byAdding: .day, value: -1, to: now),
+           calendar.isDate(date, inSameDayAs: yesterday) {
             return "Yesterday"
         }
 
@@ -209,14 +220,15 @@ enum GameSpotLogic {
 
     static func groupedSectionTitles(
         for games: [Game],
-        calendar: Calendar = .current
+        calendar: Calendar = .current,
+        now: Date = Date()
     ) -> [String] {
         let grouped = Dictionary(grouping: games) { game in
             calendar.startOfDay(for: game.startsAt)
         }
 
         return grouped.keys.sorted().map { date in
-            sectionTitle(for: date, calendar: calendar)
+            sectionTitle(for: date, calendar: calendar, now: now)
         }
     }
 }

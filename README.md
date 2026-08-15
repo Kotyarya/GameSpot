@@ -54,6 +54,12 @@ The following capabilities are **implemented in the current codebase**:
 - Vote submission via Supabase RPC `vote_mvp`.
 - Display of **match MVP** after processing (`mvpPlayer`).
 
+Match state is controlled by the backend: players may join or leave only before
+`starts_at`; the game then becomes live for its configured duration. When it ends,
+participation rewards are granted once and a three-minute MVP window opens for match
+participants. The backend closes that window, selects the MVP, grants the MVP reward once,
+and marks the match processed.
+
 ### Rankings & Leagues
 
 - Six leagues: Bronze, Silver, Gold, Diamond, Ruby, King (`RankLeague`).

@@ -51,6 +51,14 @@ struct GameInfoView: View {
             return "Open"
         }
 
+        if details.mvpVotingOpen {
+            return "MVP Voting"
+        }
+
+        if details.isProcessed {
+            return "Completed"
+        }
+
         if details.isFinished {
             return "Finished"
         }
@@ -511,7 +519,7 @@ struct GameInfoView: View {
                             
                             // MARK: MVP Voting
 
-                            if details.mvpVotingOpen {
+                            if details.mvpVotingOpen && details.isJoined {
 
                                 VStack(alignment: .leading, spacing: 16) {
 
@@ -589,7 +597,9 @@ struct GameInfoView: View {
 
                                                 isCurrentUser: player.id == session.user?.id,
 
-                                                disabled: details.hasVoted,
+                                                disabled:
+                                                    details.hasVoted
+                                                    || vm.isSubmittingVote,
 
                                                 isSelected: player.isVotedByCurrentUser,
 
@@ -606,6 +616,26 @@ struct GameInfoView: View {
                                         }
                                     }
                                 }
+                            } else if details.mvpVotingOpen {
+
+                                Label(
+                                    "MVP voting is available to match participants only.",
+                                    systemImage: "person.2.badge.gearshape"
+                                )
+                                .font(.headline)
+                                .foregroundStyle(.secondary)
+                                .padding(20)
+                                .frame(
+                                    maxWidth: .infinity,
+                                    alignment: .leading
+                                )
+                                .glassEffect(
+                                    .regular.tint(Color("inversePrimary")),
+                                    in: RoundedRectangle(
+                                        cornerRadius: 24,
+                                        style: .continuous
+                                    )
+                                )
                             }
                             
                             //MARK: MVP Player
@@ -1232,4 +1262,3 @@ struct MVPVoteRow: View {
         )
     }
 }
-
