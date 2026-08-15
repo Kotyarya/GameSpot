@@ -3,7 +3,7 @@
 //  Game SpotTests
 //
 //  Test-only helpers that mirror algorithms embedded in SwiftUI views
-//  (`GameCard`, `GameInfoView`, `JoinGameSheetView`, `GamesView`).
+//  (`GameCard`, `GameInfoView`, and `JoinGameSheetView`).
 //  Production code is unchanged; these functions document and verify
 //  the same behavioral contracts used by the UI layer.
 //
@@ -192,43 +192,4 @@ enum GameSpotLogic {
         players.contains { $0.id == userId }
     }
 
-    // MARK: - Games List Sections (GamesView.sections)
-
-    static func sectionTitle(
-        for date: Date,
-        calendar: Calendar = .current,
-        now: Date = Date()
-    ) -> String {
-        if calendar.isDate(date, inSameDayAs: now) {
-            return "Today"
-        }
-
-        if let tomorrow = calendar.date(byAdding: .day, value: 1, to: now),
-           calendar.isDate(date, inSameDayAs: tomorrow) {
-            return "Tomorrow"
-        }
-
-        if let yesterday = calendar.date(byAdding: .day, value: -1, to: now),
-           calendar.isDate(date, inSameDayAs: yesterday) {
-            return "Yesterday"
-        }
-
-        let formatter = DateFormatter()
-        formatter.dateFormat = "d MMMM"
-        return formatter.string(from: date)
-    }
-
-    static func groupedSectionTitles(
-        for games: [Game],
-        calendar: Calendar = .current,
-        now: Date = Date()
-    ) -> [String] {
-        let grouped = Dictionary(grouping: games) { game in
-            calendar.startOfDay(for: game.startsAt)
-        }
-
-        return grouped.keys.sorted().map { date in
-            sectionTitle(for: date, calendar: calendar, now: now)
-        }
-    }
 }

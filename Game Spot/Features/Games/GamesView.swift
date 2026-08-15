@@ -1,15 +1,6 @@
 import SwiftUI
 import Combine
 
-struct GameSection: Identifiable {
-    
-    let id = UUID()
-    
-    let title: String
-    
-    let games: [Game]
-}
-
 enum GamesMode: Equatable {
     
     case myGames
@@ -58,37 +49,10 @@ struct GamesView: View {
     // MARK: - Sections
     
     private var sections: [GameSection] {
-        
-        let calendar = Calendar.current
-        
-        let groupedGames = Dictionary(
-            grouping: viewModel.games
-        ) { game in
-            
-            calendar.startOfDay(
-                for: game.startsAt
-            )
-        }
-        
-        let sortedDates =
-            groupedGames.keys.sorted()
-        
-        return sortedDates.map { date in
-            
-            let games =
-                groupedGames[date]?
-                    .sorted {
-                        $0.startsAt < $1.startsAt
-                    }
-                ?? []
-            
-            return GameSection(
-                title: sectionTitle(
-                    for: date
-                ),
-                games: games
-            )
-        }
+
+        GameSectionBuilder.sections(
+            for: viewModel.games
+        )
     }
     
     // MARK: - Body
@@ -221,37 +185,5 @@ struct GamesView: View {
         }
     }
     
-    // MARK: - Helpers
-    
-    private func sectionTitle(
-        for date: Date
-    ) -> String {
-        
-        let calendar = Calendar.current
-        
-        if calendar.isDateInToday(date) {
-            
-            return "Today"
-            
-        } else if calendar.isDateInTomorrow(date) {
-            
-            return "Tomorrow"
-            
-        } else if calendar.isDateInYesterday(date) {
-            
-            return "Yesterday"
-            
-        } else {
-            
-            let formatter = DateFormatter()
-            
-            formatter.dateFormat = "d MMMM"
-            
-            return formatter.string(
-                from: date
-            )
-        }
-    }
 }
-
 

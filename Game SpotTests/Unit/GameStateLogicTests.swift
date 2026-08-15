@@ -342,8 +342,9 @@ final class GameStateLogicTests: XCTestCase {
 
     // MARK: - Section Titles
 
-    func testGroupedSectionTitlesSortsByDate() {
+    func testGroupedSectionsSortByDateAndGamesByStartTime() {
         let today = now!
+        let laterToday = now.addingTimeInterval(3_600)
         let tomorrow = calendar.date(
             byAdding: .day,
             value: 1,
@@ -352,16 +353,100 @@ final class GameStateLogicTests: XCTestCase {
 
         let games = [
             TestFixtures.game(startsAt: tomorrow),
+            TestFixtures.game(startsAt: laterToday),
             TestFixtures.game(startsAt: today)
         ]
 
-        let titles = GameSpotLogic.groupedSectionTitles(
+        let sections = GameSectionBuilder.sections(
             for: games,
             calendar: calendar,
-            now: now
+            now: now,
+            locale: Locale(identifier: "en_US_POSIX")
         )
 
-        XCTAssertEqual(titles.first, "Today")
-        XCTAssertEqual(titles.last, "Tomorrow")
+        XCTAssertEqual(sections.map(\.title), ["Today", "Tomorrow"])
+        XCTAssertEqual(
+            sections.first?.games.map(\.startsAt),
+            [today, laterToday]
+        )
+    }
+
+    func testGroupedSectionsUseInjectedTimeZone() {
+        var tokyoCalendar = Calendar(identifier: .gregorian)
+        tokyoCalendar.timeZone = TimeZone(
+            identifier: "Asia/Tokyo"
+        )!
+
+        let utcNow = calendar.date(
+            from: DateComponents(
+                year: 2026,
+                month: 5,
+                day: 15,
+                hour: 23,
+                minute: 30
+            )
+        )!
+        let tokyoTomorrow = utcNow.addingTimeInterval(16 * 3_600)
+        let games = [
+            TestFixtures.game(startsAt: utcNow),
+            TestFixtures.game(startsAt: tokyoTomorrow)
+        ]
+
+        let titles = GameSectionBuilder.sections(
+            for: games,
+            calendar: tokyoCalendar,
+            now: utcNow,
+            locale: Locale(identifier: "en_US_POSIX")
+        ).map(\.title)
+
+        XCTAssertEqual(titles, ["Today", "Tomorrow"])
+    }
+
+    func testGroupedSectionsHandleMidnightBoundary() {
+        var losAngelesCalendar = Calendar(identifier: .gregorian)
+        losAngelesCalendar.timeZone = TimeZone(
+            identifier: "America/Los_Angeles"
+        )!
+
+        let localNow = losAngelesCalendar.date(
+            from: DateComponents(
+                year: 2026,
+                month: 5,
+                day: 15,
+                hour: 23,
+                minute: 59,
+                second: 30
+            )
+        )!
+        let afterMidnight = localNow.addingTimeInterval(60)
+
+        let titles = GameSectionBuilder.sections(
+            for: [
+                TestFixtures.game(startsAt: afterMidnight),
+                TestFixtures.game(startsAt: localNow)
+            ],
+            calendar: losAngelesCalendar,
+            now: localNow,
+            locale: Locale(identifier: "en_US_POSIX")
+        ).map(\.title)
+
+        XCTAssertEqual(titles, ["Today", "Tomorrow"])
+    }
+
+    func testSectionTitleKeepsDayMonthFormatOutsideRelativeRange() {
+        let futureDate = calendar.date(
+            byAdding: .day,
+            value: 5,
+            to: now
+        )!
+
+        let title = GameSectionBuilder.title(
+            for: futureDate,
+            calendar: calendar,
+            now: now,
+            locale: Locale(identifier: "en_US_POSIX")
+        )
+
+        XCTAssertEqual(title, "20 May")
     }
 }
