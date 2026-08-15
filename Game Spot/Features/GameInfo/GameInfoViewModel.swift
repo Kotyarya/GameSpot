@@ -189,7 +189,9 @@ final class GameInfoViewModel: ObservableObject {
     func joinGame(
         gameId: UUID,
         team: Team
-    ) async {
+    ) async throws {
+
+        errorMessage = nil
         
         do {
             
@@ -198,6 +200,10 @@ final class GameInfoViewModel: ObservableObject {
                     gameId: gameId,
                     team: team
                 )
+
+            await refreshDetailsAfterTeamChange(
+                gameId: gameId
+            )
             
         } catch {
             
@@ -208,6 +214,8 @@ final class GameInfoViewModel: ObservableObject {
                 "Join game failed",
                 error: error
             )
+
+            throw error
         }
     }
     
@@ -215,7 +223,9 @@ final class GameInfoViewModel: ObservableObject {
     
     func leaveGame(
         gameId: UUID
-    ) async {
+    ) async throws {
+
+        errorMessage = nil
         
         do {
             
@@ -223,6 +233,10 @@ final class GameInfoViewModel: ObservableObject {
                 .leaveGame(
                     gameId: gameId
                 )
+
+            await refreshDetailsAfterTeamChange(
+                gameId: gameId
+            )
             
         } catch {
             
@@ -231,6 +245,30 @@ final class GameInfoViewModel: ObservableObject {
             
             AppLogger.error(
                 "Leave game failed",
+                error: error
+            )
+
+            throw error
+        }
+    }
+
+    private func refreshDetailsAfterTeamChange(
+        gameId: UUID
+    ) async {
+
+        do {
+
+            let updatedDetails = try await gameService
+                .fetchGameDetails(gameId: gameId)
+
+            withAnimation(.spring) {
+                details = updatedDetails
+            }
+
+        } catch {
+
+            AppLogger.error(
+                "Team changed, but game reload failed",
                 error: error
             )
         }

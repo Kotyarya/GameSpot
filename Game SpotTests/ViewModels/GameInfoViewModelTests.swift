@@ -121,20 +121,115 @@ final class GameInfoViewModelTests: XCTestCase {
         XCTAssertFalse(viewModel.isSubmittingVote)
     }
 
-    func testJoinFailureShowsError() async {
+    func testJoinFailureShowsErrorAndThrows() async {
         let service = GameInfoServiceStub(joinError: GameInfoTestError.failed)
         let viewModel = makeViewModel(gameService: service)
 
-        await viewModel.joinGame(
+        do {
+            try await viewModel.joinGame(
+                gameId: TestFixtures.gameId,
+                team: .alpha
+            )
+            XCTFail("Join should throw the service error")
+        } catch {
+            XCTAssertEqual(
+                error.localizedDescription,
+                GameInfoTestError.failed.localizedDescription
+            )
+        }
+
+        XCTAssertEqual(service.receivedJoinTeam, .alpha)
+        XCTAssertEqual(service.fetchCallCount, 0)
+        XCTAssertEqual(
+            viewModel.errorMessage,
+            GameInfoTestError.failed.localizedDescription
+        )
+    }
+
+    func testSuccessfulJoinRefreshesDetails() async throws {
+        let updatedDetails = TestFixtures.gameDetails(
+            startsAt: Date(timeIntervalSince1970: 1_800_000_000),
+            joinedPlayers: 3,
+            players: [
+                TestFixtures.player(),
+                TestFixtures.player(id: UUID(), team: .alpha),
+                TestFixtures.player(id: UUID(), team: .beta)
+            ]
+        )
+        let service = GameInfoServiceStub(
+            detailsResult: .success(updatedDetails)
+        )
+        let viewModel = makeViewModel(gameService: service)
+
+        try await viewModel.joinGame(
+            gameId: TestFixtures.gameId,
+            team: .beta
+        )
+
+        XCTAssertEqual(service.receivedJoinGameId, TestFixtures.gameId)
+        XCTAssertEqual(service.receivedJoinTeam, .beta)
+        XCTAssertEqual(service.fetchCallCount, 1)
+        XCTAssertEqual(viewModel.details?.players.count, 3)
+        XCTAssertNil(viewModel.errorMessage)
+    }
+
+    func testSuccessfulLeaveRefreshesDetails() async throws {
+        let service = GameInfoServiceStub()
+        let viewModel = makeViewModel(gameService: service)
+
+        try await viewModel.leaveGame(
+            gameId: TestFixtures.gameId
+        )
+
+        XCTAssertEqual(service.receivedLeaveGameId, TestFixtures.gameId)
+        XCTAssertEqual(service.fetchCallCount, 1)
+        XCTAssertNotNil(viewModel.details)
+        XCTAssertNil(viewModel.errorMessage)
+    }
+
+    func testLeaveFailureShowsErrorAndThrows() async {
+        let service = GameInfoServiceStub(
+            leaveError: GameInfoTestError.failed
+        )
+        let viewModel = makeViewModel(gameService: service)
+
+        do {
+            try await viewModel.leaveGame(
+                gameId: TestFixtures.gameId
+            )
+            XCTFail("Leave should throw the service error")
+        } catch {
+            XCTAssertEqual(
+                error.localizedDescription,
+                GameInfoTestError.failed.localizedDescription
+            )
+        }
+
+        XCTAssertEqual(
+            service.receivedLeaveGameId,
+            TestFixtures.gameId
+        )
+        XCTAssertEqual(service.fetchCallCount, 0)
+        XCTAssertEqual(
+            viewModel.errorMessage,
+            GameInfoTestError.failed.localizedDescription
+        )
+    }
+
+    func testSuccessfulJoinDoesNotThrowWhenRefreshFails() async throws {
+        let service = GameInfoServiceStub(
+            detailsResult: .failure(GameInfoTestError.failed)
+        )
+        let viewModel = makeViewModel(gameService: service)
+
+        try await viewModel.joinGame(
             gameId: TestFixtures.gameId,
             team: .alpha
         )
 
         XCTAssertEqual(service.receivedJoinTeam, .alpha)
-        XCTAssertEqual(
-            viewModel.errorMessage,
-            GameInfoTestError.failed.localizedDescription
-        )
+        XCTAssertEqual(service.fetchCallCount, 1)
+        XCTAssertNil(viewModel.errorMessage)
     }
 
     private func makeViewModel(
@@ -156,9 +251,13 @@ private class GameInfoServiceStub: GameInfoServing {
 
     private let detailsResult: Result<GameDetails, Error>
     private let joinError: Error?
+    private let leaveError: Error?
 
     private(set) var voteCallCount = 0
+    private(set) var fetchCallCount = 0
+    private(set) var receivedJoinGameId: UUID?
     private(set) var receivedJoinTeam: Team?
+    private(set) var receivedLeaveGameId: UUID?
 
     init(
         detailsResult: Result<GameDetails, Error> = .success(
@@ -166,18 +265,21 @@ private class GameInfoServiceStub: GameInfoServing {
                 startsAt: Date(timeIntervalSince1970: 1_800_000_000)
             )
         ),
-        joinError: Error? = nil
+        joinError: Error? = nil,
+        leaveError: Error? = nil
     ) {
 
         self.detailsResult = detailsResult
         self.joinError = joinError
+        self.leaveError = leaveError
     }
 
     func fetchGameDetails(
         gameId: UUID
     ) async throws -> GameDetails {
 
-        try detailsResult.get()
+        fetchCallCount += 1
+        return try detailsResult.get()
     }
 
     func joinGame(
@@ -185,6 +287,7 @@ private class GameInfoServiceStub: GameInfoServing {
         team: Team
     ) async throws {
 
+        receivedJoinGameId = gameId
         receivedJoinTeam = team
 
         if let joinError {
@@ -194,7 +297,14 @@ private class GameInfoServiceStub: GameInfoServing {
 
     func leaveGame(
         gameId: UUID
-    ) async throws {}
+    ) async throws {
+
+        receivedLeaveGameId = gameId
+
+        if let leaveError {
+            throw leaveError
+        }
+    }
 
     func voteMVP(
         gameId: UUID,

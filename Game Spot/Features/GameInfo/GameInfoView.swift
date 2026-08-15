@@ -1026,20 +1026,16 @@ struct GameInfoView: View {
                     currentUserId: userId,
                     
                     onJoin: { team in
-                        Task {
-                            await vm.joinGame(
-                                gameId: gameId,
-                                team: team
-                            )
-                        }
+                        try await vm.joinGame(
+                            gameId: gameId,
+                            team: team
+                        )
                     },
                     
                     onLeave: {
-                        Task {
-                            await vm.leaveGame(
-                                gameId: gameId
-                            )
-                        }
+                        try await vm.leaveGame(
+                            gameId: gameId
+                        )
                     }
                 )
             }

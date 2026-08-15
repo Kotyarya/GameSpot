@@ -7,8 +7,14 @@ struct JoinGameSheetView: View {
     let details: GameDetails
     let currentUserId: UUID
     
-    let onJoin: (Team) -> Void
-    let onLeave: () -> Void
+    let onJoin: @MainActor (Team) async throws -> Void
+    let onLeave: @MainActor () async throws -> Void
+
+    // MARK: - State
+
+    @State private var isSubmitting = false
+
+    @State private var actionErrorMessage: String?
     
     // MARK: - Environment
     
@@ -52,6 +58,8 @@ struct JoinGameSheetView: View {
                     closeToolbar
                 }
         }
+        .accessibilityIdentifier("team.sheet")
+        .interactiveDismissDisabled(isSubmitting)
     }
     
     // MARK: - Content
@@ -61,6 +69,14 @@ struct JoinGameSheetView: View {
         ScrollView {
             
             VStack(spacing: 32) {
+
+                if let actionErrorMessage {
+                    errorBanner(actionErrorMessage)
+                }
+
+                if isSubmitting {
+                    submittingBanner
+                }
                 
                 teamSection(
                     title: "Team Alpha",
@@ -94,9 +110,89 @@ struct JoinGameSheetView: View {
             limit: teamLimit,
             currentUserId: currentUserId,
             isJoined: isJoined,
-            onJoin: onJoin,
-            onLeave: onLeave
+            isSubmitting: isSubmitting,
+            onJoin: submitJoin,
+            onLeave: submitLeave
         )
+    }
+
+    private func errorBanner(
+        _ message: String
+    ) -> some View {
+
+        HStack(spacing: 10) {
+
+            Image(systemName: "exclamationmark.triangle.fill")
+
+            Text(message)
+                .accessibilityIdentifier("team.error")
+        }
+            .font(.callout)
+            .foregroundStyle(.red)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .background(.red.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private var submittingBanner: some View {
+
+        HStack(spacing: 12) {
+
+            ProgressView()
+
+            Text("Updating team…")
+                .font(.headline)
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(16)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .accessibilityIdentifier("team.submitting")
+    }
+
+    private func submitJoin(
+        _ team: Team
+    ) {
+
+        performTeamAction {
+            try await onJoin(team)
+        }
+    }
+
+    private func submitLeave() {
+
+        performTeamAction {
+            try await onLeave()
+        }
+    }
+
+    private func performTeamAction(
+        _ action: @escaping @MainActor () async throws -> Void
+    ) {
+
+        guard !isSubmitting else {
+            return
+        }
+
+        isSubmitting = true
+        actionErrorMessage = nil
+
+        Task { @MainActor in
+
+            do {
+
+                try await action()
+                dismiss()
+
+            } catch {
+
+                actionErrorMessage = "Couldn’t update the team. Please try again."
+                isSubmitting = false
+            }
+        }
     }
     
     private var versusSection: some View {
@@ -139,6 +235,7 @@ struct JoinGameSheetView: View {
                 
                 Image(systemName: "xmark")
             }
+            .disabled(isSubmitting)
         }
     }
 }
@@ -160,6 +257,8 @@ struct TeamSectionView: View {
     let currentUserId: UUID
     
     let isJoined: Bool
+
+    let isSubmitting: Bool
     
     let onJoin: (Team) -> Void
     
@@ -217,6 +316,7 @@ struct TeamSectionView: View {
             PlayerSlotRow(
                 player: players[index],
                 currentUserId: currentUserId,
+                disabled: isSubmitting,
                 onLeave: onLeave
             )
             
@@ -224,7 +324,8 @@ struct TeamSectionView: View {
             
             EmptySlotRow(
                 team: team,
-                disabled: isJoined,
+                slotIndex: index,
+                disabled: isJoined || isSubmitting,
                 onJoin: onJoin
             )
         }
@@ -240,6 +341,8 @@ struct PlayerSlotRow: View {
     let player: Player
     
     let currentUserId: UUID
+
+    let disabled: Bool
     
     let onLeave: () -> Void
     
@@ -268,7 +371,17 @@ struct PlayerSlotRow: View {
             Spacer()
             
             if isCurrentUser {
-                leaveButton
+
+                if disabled {
+
+                    ProgressView()
+                        .tint(.white)
+                        .accessibilityIdentifier("team.leaveProgress")
+
+                } else {
+
+                    leaveButton
+                }
             }
         }
         .padding(.horizontal, 16)
@@ -369,6 +482,8 @@ struct PlayerSlotRow: View {
             .bold()
         }
         .foregroundStyle(.white)
+        .disabled(disabled)
+        .accessibilityIdentifier("team.leave")
     }
 }
 
@@ -379,6 +494,8 @@ struct EmptySlotRow: View {
     // MARK: - Properties
     
     let team: Team
+
+    let slotIndex: Int
     
     let disabled: Bool
     
@@ -406,10 +523,16 @@ struct EmptySlotRow: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(disabled)
         .opacity(disabled ? 0.45 : 1)
+        .accessibilityIdentifier(
+            team == .alpha
+            ? "team.alpha.join.\(slotIndex)"
+            : "team.beta.join.\(slotIndex)"
+        )
     }
     
     // MARK: - Slot Avatar
