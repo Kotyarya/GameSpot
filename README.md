@@ -242,7 +242,8 @@ The project represents the complete source code of the Game Spot application and
 
 ## Database
 
-The iOS client does not ship SQL migrations; the schema is inferred from service calls and models. The backend is a **Supabase Postgres** project.
+The backend is a **Supabase Postgres** project. Its application schema is versioned under
+`supabase/migrations/`; production user records and secrets are deliberately excluded.
 
 ### Tables (referenced in code)
 
@@ -280,6 +281,29 @@ The iOS client does not ship SQL migrations; the schema is inferred from service
 | Bucket | Path pattern | Purpose |
 |--------|--------------|---------|
 | `avatars` | `{userId}/avatar.jpg` | Profile avatar upload |
+
+### Recreating the backend locally
+
+Prerequisites: Docker Desktop and the current Supabase CLI.
+
+```bash
+# Start the local Supabase stack and apply every migration from a clean database.
+supabase start
+supabase db reset
+
+# Stop the local stack when finished.
+supabase stop
+```
+
+The baseline migration recreates the public schema, functions, triggers, RLS policies,
+grants, the `avatars` Storage bucket and policies, Realtime publication membership, and
+scheduled cron jobs. Later backend fixes must be added as new migration files; do not edit
+an already-applied migration.
+
+To connect this working copy to the existing remote project for read-only inspection or a
+reviewed migration workflow, use `supabase link --project-ref <project-ref>`. Keep the
+database password, service-role key, access token, and `.env` files outside Git. Never run
+`db reset` against the hosted project.
 
 ### Key Model Entities
 
