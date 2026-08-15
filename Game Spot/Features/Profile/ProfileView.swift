@@ -336,6 +336,8 @@ struct ProfileView: View {
 
             sportStatsSection
 
+            privacySection
+
             signOutSection
 
             deleteAccountSection
@@ -636,6 +638,32 @@ struct ProfileView: View {
                 title: "Points"
             )
         }
+    }
+
+    // MARK: - Privacy
+
+    private var privacySection: some View {
+        NavigationLink {
+            PrivacyPolicyView()
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "hand.raised.fill")
+
+                Text("Privacy Policy")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+        }
+        .buttonStyle(.glass)
+        .accessibilityIdentifier("profile.privacyPolicy")
     }
 
     // MARK: - Sign Out
