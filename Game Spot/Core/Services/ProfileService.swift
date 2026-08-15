@@ -15,6 +15,30 @@ protocol ProfileFetching: AnyObject, Sendable {
     func getRecentMatches() async throws -> [RecentMatch]
 }
 
+@MainActor
+protocol ProfileSetupServing: AnyObject, Sendable {
+
+    func isUsernameAvailable(
+        _ username: String
+    ) async throws -> Bool
+
+    func completeProfile(
+        userId: UUID,
+        username: String,
+        avatarUrl: String?,
+        sportId: UUID
+    ) async throws
+}
+
+@MainActor
+protocol ProfileAvatarUpdating: AnyObject, Sendable {
+
+    func updateAvatar(
+        userId: UUID,
+        avatarUrl: String?
+    ) async throws
+}
+
 final class ProfileService: @unchecked Sendable {
 
     // MARK: - Shared
@@ -150,9 +174,27 @@ final class ProfileService: @unchecked Sendable {
             .eq("id", value: userId)
             .execute()
     }
+
+    func updateAvatar(
+        userId: UUID,
+        avatarUrl: String?
+    ) async throws {
+
+        try await client
+            .from("profiles")
+            .update(
+                AvatarPayload(
+                    avatar_url: avatarUrl
+                )
+            )
+            .eq("id", value: userId)
+            .execute()
+    }
 }
 
 extension ProfileService: ProfileFetching {}
+extension ProfileService: ProfileSetupServing {}
+extension ProfileService: ProfileAvatarUpdating {}
 
 // MARK: - DTOs
 
@@ -172,5 +214,10 @@ private extension ProfileService {
         let favorite_sport_id: String
 
         let is_profile_completed: Bool
+    }
+
+    struct AvatarPayload: Encodable {
+
+        let avatar_url: String?
     }
 }

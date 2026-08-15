@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 internal import Auth
 
 @MainActor
@@ -14,6 +15,8 @@ struct ProfileView: View {
 
     @State private var showsDeleteConfirmation = false
     @State private var accountDeletionAlert: AccountDeletionAlert?
+    @State private var selectedAvatarItem: PhotosPickerItem?
+    @State private var showsRemoveAvatarConfirmation = false
 
     // MARK: - Environment
 
@@ -72,6 +75,26 @@ struct ProfileView: View {
             await viewModel.load(
                 userId: userId
             )
+        }
+        .onChange(of: selectedAvatarItem) { _, item in
+            Task {
+                await replaceAvatar(from: item)
+            }
+        }
+        .confirmationDialog(
+            "Remove Profile Photo?",
+            isPresented: $showsRemoveAvatarConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Remove Photo", role: .destructive) {
+                Task {
+                    await removeAvatar()
+                }
+            }
+
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Your profile will use the default avatar.")
         }
         .confirmationDialog(
             "Delete Account?",
@@ -336,6 +359,8 @@ struct ProfileView: View {
 
             sportStatsSection
 
+            avatarManagementSection
+
             privacySection
 
             signOutSection
@@ -426,6 +451,116 @@ struct ProfileView: View {
                 )
             )
         }
+    }
+
+    // MARK: - Avatar Management
+
+    private var avatarManagementSection: some View {
+
+        let chooseButtonTitle = viewModel.profile?.avatarUrl == nil
+            ? "Add Photo"
+            : "Replace Photo"
+
+        return VStack(alignment: .leading, spacing: 14) {
+
+            Text("Profile Photo")
+                .font(.largeTitle)
+                .bold()
+
+            HStack(spacing: 12) {
+
+                PhotosPicker(
+                    selection: $selectedAvatarItem,
+                    matching: .images
+                ) {
+                    Label(
+                        chooseButtonTitle,
+                        systemImage: "photo.badge.plus"
+                    )
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                }
+                .buttonStyle(.glassProminent)
+                .tint(Color("AccentColor"))
+                .disabled(viewModel.isUpdatingAvatar)
+                .accessibilityIdentifier("profile.avatar.choose")
+
+                if viewModel.profile?.avatarUrl != nil {
+
+                    Button(role: .destructive) {
+                        showsRemoveAvatarConfirmation = true
+                    } label: {
+                        Image(systemName: "trash")
+                            .frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.glass)
+                    .disabled(viewModel.isUpdatingAvatar)
+                    .accessibilityIdentifier("profile.avatar.remove")
+                }
+            }
+
+            if viewModel.isUpdatingAvatar {
+
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text("Updating photo…")
+                }
+                .font(.subheadline)
+                .accessibilityIdentifier("profile.avatar.updating")
+            }
+
+            if let error = viewModel.avatarErrorMessage {
+
+                Label(
+                    error,
+                    systemImage: "exclamationmark.circle.fill"
+                )
+                .font(.subheadline)
+                .foregroundStyle(.red)
+                .accessibilityIdentifier("profile.avatar.error")
+            }
+        }
+    }
+
+    private func replaceAvatar(
+        from item: PhotosPickerItem?
+    ) async {
+
+        defer {
+            selectedAvatarItem = nil
+        }
+
+        guard let item,
+              let userId = session.user?.id else {
+            return
+        }
+
+        do {
+            guard let data = try await item.loadTransferable(
+                type: Data.self
+            ),
+                  let image = UIImage(data: data) else {
+                viewModel.showAvatarSelectionError()
+                return
+            }
+
+            await viewModel.replaceAvatar(
+                with: image,
+                userId: userId
+            )
+
+        } catch {
+            viewModel.showAvatarSelectionError()
+        }
+    }
+
+    private func removeAvatar() async {
+
+        guard let userId = session.user?.id else {
+            return
+        }
+
+        await viewModel.removeAvatar(userId: userId)
     }
 
     // MARK: - Recent Matches

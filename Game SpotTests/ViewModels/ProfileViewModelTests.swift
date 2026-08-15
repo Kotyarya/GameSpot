@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 @testable import Game_Spot
 
 @MainActor
@@ -95,16 +96,98 @@ final class ProfileViewModelTests: XCTestCase {
         XCTAssertFalse(viewModel.hasLoadedOnce)
     }
 
+    func testAvatarReplacementCanRetryAfterProfileUpdateFailure() async {
+        let storage = ProfileAvatarStorageStub()
+        let updater = ProfileAvatarUpdaterStub(
+            results: [
+                .failure(ProfileTestError.failed),
+                .success(())
+            ]
+        )
+        let viewModel = makeViewModel(
+            avatarStorage: storage,
+            avatarUpdater: updater
+        )
+
+        await viewModel.load(userId: TestFixtures.userId)
+
+        let firstResult = await viewModel.replaceAvatar(
+            with: testImage(),
+            userId: TestFixtures.userId
+        )
+
+        XCTAssertFalse(firstResult)
+        XCTAssertEqual(storage.uploadCallCount, 1)
+        XCTAssertEqual(updater.receivedAvatarURLs.count, 1)
+        XCTAssertNotNil(viewModel.avatarErrorMessage)
+
+        let retryResult = await viewModel.replaceAvatar(
+            with: testImage(),
+            userId: TestFixtures.userId
+        )
+
+        XCTAssertTrue(retryResult)
+        XCTAssertEqual(storage.uploadCallCount, 2)
+        XCTAssertEqual(updater.receivedAvatarURLs.count, 2)
+        XCTAssertEqual(
+            viewModel.profile?.avatarUrl,
+            ProfileAvatarStorageStub.avatarURL.absoluteString
+        )
+        XCTAssertNil(viewModel.avatarErrorMessage)
+    }
+
+    func testAvatarRemovalDeletesObjectAndClearsProfileURL() async {
+        let service = ProfileServiceStub(
+            profileResult: .success(
+                TestFixtures.profile(
+                    avatarUrl: "https://example.com/old-avatar.jpg"
+                )
+            )
+        )
+        let storage = ProfileAvatarStorageStub()
+        let updater = ProfileAvatarUpdaterStub()
+        let viewModel = makeViewModel(
+            service: service,
+            avatarStorage: storage,
+            avatarUpdater: updater
+        )
+
+        await viewModel.load(userId: TestFixtures.userId)
+        let result = await viewModel.removeAvatar(
+            userId: TestFixtures.userId
+        )
+
+        XCTAssertTrue(result)
+        XCTAssertEqual(storage.removeCallCount, 1)
+        XCTAssertEqual(updater.receivedAvatarURLs, [nil])
+        XCTAssertNil(viewModel.profile?.avatarUrl)
+        XCTAssertNil(viewModel.avatarErrorMessage)
+    }
+
     private func makeViewModel(
         service: (any ProfileFetching)? = nil,
-        realtime: (any ProfileRealtimeSubscribing)? = nil
+        realtime: (any ProfileRealtimeSubscribing)? = nil,
+        avatarStorage: (any AvatarStoring)? = nil,
+        avatarUpdater: (any ProfileAvatarUpdating)? = nil
     ) -> ProfileViewModel {
 
         ProfileViewModel(
             service: service ?? ProfileServiceStub(),
             realtime: realtime ?? ProfileRealtimeStub(),
+            avatarStorage: avatarStorage ?? ProfileAvatarStorageStub(),
+            avatarUpdater: avatarUpdater ?? ProfileAvatarUpdaterStub(),
             minimumLoadingDuration: 0
         )
+    }
+
+    private func testImage() -> UIImage {
+
+        UIGraphicsImageRenderer(
+            size: CGSize(width: 10, height: 10)
+        ).image { context in
+            UIColor.systemBlue.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 10, height: 10))
+        }
     }
 }
 
@@ -175,6 +258,57 @@ private final class ProfileRealtimeStub: ProfileRealtimeSubscribing {
     }
 
     func unsubscribe() async {}
+}
+
+@MainActor
+private final class ProfileAvatarStorageStub: AvatarStoring {
+
+    static let avatarURL = URL(
+        string: "https://example.com/avatar.jpg?v=2"
+    )!
+
+    private(set) var uploadCallCount = 0
+    private(set) var removeCallCount = 0
+
+    func uploadAvatar(
+        _ image: UIImage,
+        userId: UUID
+    ) async throws -> URL {
+
+        uploadCallCount += 1
+        return Self.avatarURL
+    }
+
+    func removeAvatar(userId: UUID) async throws {
+        removeCallCount += 1
+    }
+}
+
+@MainActor
+private final class ProfileAvatarUpdaterStub: ProfileAvatarUpdating {
+
+    private var results: [Result<Void, Error>]
+    private(set) var receivedAvatarURLs: [String?] = []
+
+    init(
+        results: [Result<Void, Error>] = [.success(())]
+    ) {
+        self.results = results
+    }
+
+    func updateAvatar(
+        userId: UUID,
+        avatarUrl: String?
+    ) async throws {
+
+        receivedAvatarURLs.append(avatarUrl)
+
+        guard !results.isEmpty else {
+            return
+        }
+
+        try results.removeFirst().get()
+    }
 }
 
 private enum ProfileTestError: LocalizedError {

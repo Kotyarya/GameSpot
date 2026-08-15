@@ -69,14 +69,16 @@ enum TestFixtures {
     static func profile(
         isOnboarded: Bool = true,
         isProfileCompleted: Bool = true,
-        rating: Int = 500
+        rating: Int = 500,
+        avatarUrl: String? = nil
     ) -> Profile {
         let now = iso8601(Date())
+        let avatarJSON = avatarUrl.map { "\"\($0)\"" } ?? "null"
         return decode(Profile.self, from: """
         {
             "id": "\(userId.uuidString)",
             "username": "testuser",
-            "avatar_url": null,
+            "avatar_url": \(avatarJSON),
             "favorite_sport_id": "\(sportFootballId.uuidString)",
             "sports": {
                 "id": "\(sportFootballId.uuidString)",

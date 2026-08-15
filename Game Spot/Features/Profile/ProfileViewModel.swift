@@ -19,11 +19,19 @@ final class ProfileViewModel: ObservableObject {
 
     @Published var hasLoadedOnce = false
 
+    @Published private(set) var isUpdatingAvatar = false
+
+    @Published private(set) var avatarErrorMessage: String?
+
     // MARK: - Services
 
     private let service: any ProfileFetching
 
     private let realtime: any ProfileRealtimeSubscribing
+
+    private let avatarStorage: any AvatarStoring
+
+    private let avatarUpdater: any ProfileAvatarUpdating
 
     // MARK: - Properties
 
@@ -36,12 +44,132 @@ final class ProfileViewModel: ObservableObject {
     init(
         service: any ProfileFetching = ProfileService.shared,
         realtime: any ProfileRealtimeSubscribing = SupabaseProfileRealtimeService(),
+        avatarStorage: any AvatarStoring = SupabaseAvatarStorageService.shared,
+        avatarUpdater: any ProfileAvatarUpdating = ProfileService.shared,
         minimumLoadingDuration: TimeInterval = 2.0
     ) {
 
         self.service = service
         self.realtime = realtime
+        self.avatarStorage = avatarStorage
+        self.avatarUpdater = avatarUpdater
         self.minimumLoadingDuration = minimumLoadingDuration
+    }
+
+    // MARK: - Avatar
+
+    @discardableResult
+    func replaceAvatar(
+        with image: UIImage,
+        userId: UUID
+    ) async -> Bool {
+
+        guard !isUpdatingAvatar else {
+            return false
+        }
+
+        isUpdatingAvatar = true
+        avatarErrorMessage = nil
+
+        defer {
+            isUpdatingAvatar = false
+        }
+
+        do {
+            let url = try await avatarStorage.uploadAvatar(
+                image,
+                userId: userId
+            )
+
+            try await avatarUpdater.updateAvatar(
+                userId: userId,
+                avatarUrl: url.absoluteString
+            )
+
+            updateLocalAvatar(url.absoluteString)
+            return true
+
+        } catch {
+            avatarErrorMessage =
+                "Couldn’t update your photo. Please try again."
+
+            AppLogger.error(
+                "Avatar replacement failed",
+                error: error
+            )
+
+            return false
+        }
+    }
+
+    @discardableResult
+    func removeAvatar(
+        userId: UUID
+    ) async -> Bool {
+
+        guard !isUpdatingAvatar else {
+            return false
+        }
+
+        isUpdatingAvatar = true
+        avatarErrorMessage = nil
+
+        defer {
+            isUpdatingAvatar = false
+        }
+
+        do {
+            try await avatarStorage.removeAvatar(userId: userId)
+
+            try await avatarUpdater.updateAvatar(
+                userId: userId,
+                avatarUrl: nil
+            )
+
+            updateLocalAvatar(nil)
+            return true
+
+        } catch {
+            avatarErrorMessage =
+                "Couldn’t remove your photo. Please try again."
+
+            AppLogger.error(
+                "Avatar removal failed",
+                error: error
+            )
+
+            return false
+        }
+    }
+
+    func showAvatarSelectionError() {
+
+        avatarErrorMessage = "Couldn’t load the selected photo."
+    }
+
+    private func updateLocalAvatar(
+        _ avatarURL: String?
+    ) {
+
+        guard let profile else {
+            return
+        }
+
+        self.profile = Profile(
+            id: profile.id,
+            username: profile.username,
+            avatarUrl: avatarURL,
+            favoriteSportId: profile.favoriteSportId,
+            favoriteSport: profile.favoriteSport,
+            rating: profile.rating,
+            gamesPlayed: profile.gamesPlayed,
+            mvpCount: profile.mvpCount,
+            perfPoints: profile.perfPoints,
+            isOnboarded: profile.isOnboarded,
+            isProfileCompleted: profile.isProfileCompleted,
+            createdAt: profile.createdAt,
+            updatedAt: Date()
+        )
     }
 
     // MARK: - Load

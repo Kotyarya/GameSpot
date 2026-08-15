@@ -226,16 +226,31 @@ struct ProfileSetupView: View {
 
                 Task {
 
-                    if let data = try? await newItem?
-                        .loadTransferable(type: Data.self),
-
-                       let uiImage = UIImage(data: data) {
-
-                        await MainActor.run {
-                            viewModel.avatarImage = uiImage
+                    do {
+                        guard let data = try await newItem?
+                            .loadTransferable(type: Data.self),
+                              let uiImage = UIImage(data: data) else {
+                            throw AvatarSelectionError.invalidImage
                         }
+
+                        viewModel.avatarImage = uiImage
+                        viewModel.errorMessage = nil
+
+                    } catch {
+                        viewModel.errorMessage =
+                            "Couldn’t load the selected photo."
                     }
                 }
+            }
+
+            if avatarImage != nil {
+
+                Button("Remove Photo", role: .destructive) {
+                    selectedItem = nil
+                    viewModel.avatarImage = nil
+                }
+                .font(.subheadline.weight(.semibold))
+                .disabled(viewModel.isLoading)
             }
         }
     }
@@ -476,11 +491,16 @@ struct ProfileSetupView: View {
                     return
                 }
 
-                try? await viewModel.submit(
-                    userId: userId
-                )
+                do {
+                    try await viewModel.submit(
+                        userId: userId
+                    )
 
-                await session.loadProfile()
+                    await session.loadProfile()
+
+                } catch {
+                    // The view model keeps the actionable message on screen.
+                }
             }
 
         } label: {
@@ -510,6 +530,11 @@ struct ProfileSetupView: View {
             : 0.6
         )
     }
+}
+
+private enum AvatarSelectionError: Error {
+
+    case invalidImage
 }
 
 #Preview {

@@ -1,6 +1,5 @@
 import Foundation
 import SwiftUI
-import Supabase
 import Combine
 
 @MainActor
@@ -36,16 +35,32 @@ final class ProfileSetupViewModel:
     private var usernameTask:
         Task<Void, Never>?
 
+    private var uploadedAvatarInCurrentSetup = false
+
     // MARK: - Dependencies
 
-    private let profileService =
-        ProfileService.shared
+    private let profileService: any ProfileSetupServing
 
-    private let sportService =
-        SportService.shared
+    private let sportService: any SportFetching
 
-    private let client =
-        SupabaseService.shared.client
+    private let avatarStorage: any AvatarStoring
+
+    private let minimumLoadingDuration: TimeInterval
+
+    // MARK: - Init
+
+    init(
+        profileService: any ProfileSetupServing = ProfileService.shared,
+        sportService: any SportFetching = SportService.shared,
+        avatarStorage: any AvatarStoring = SupabaseAvatarStorageService.shared,
+        minimumLoadingDuration: TimeInterval = 2
+    ) {
+
+        self.profileService = profileService
+        self.sportService = sportService
+        self.avatarStorage = avatarStorage
+        self.minimumLoadingDuration = minimumLoadingDuration
+    }
 
     // MARK: - Load Sports
 
@@ -97,8 +112,6 @@ final class ProfileSetupViewModel:
                         username
                     )
 
-            print(available)
-
             isUsernameAvailable =
                 available
 
@@ -119,32 +132,13 @@ final class ProfileSetupViewModel:
             return nil
         }
 
-        let data = try AvatarImageEncoder.jpegData(
-            from: image
-        )
-
-        let path =
-            "\(userId)/avatar.jpg"
-
-        print("UPLOAD PATH:", path)
-
-        try await client.storage
-            .from("avatars")
-            .upload(
-                path,
-                data: data,
-                options: FileOptions(
-                    contentType: "image/jpeg",
-                    upsert: true
-                )
+        let url = try await avatarStorage
+            .uploadAvatar(
+                image,
+                userId: userId
             )
 
-        let url = try client.storage
-            .from("avatars")
-            .getPublicURL(
-                path: path
-            )
-
+        uploadedAvatarInCurrentSetup = true
         return url.absoluteString
     }
 
@@ -154,9 +148,20 @@ final class ProfileSetupViewModel:
         userId: UUID
     ) async throws {
 
+        guard !isLoading else {
+            throw ProfileSetupSubmissionError.alreadyInProgress
+        }
+
         let startTime = Date()
 
-        try validateInput()
+        errorMessage = nil
+
+        do {
+            try validateInput()
+        } catch {
+            errorMessage = error.localizedDescription
+            throw error
+        }
 
         withAnimation(
             .easeInOut(duration: 0.2)
@@ -167,10 +172,21 @@ final class ProfileSetupViewModel:
 
         do {
 
-            let avatarUrl =
-                try await uploadAvatar(
+            let avatarUrl: String?
+
+            if avatarImage == nil,
+               uploadedAvatarInCurrentSetup {
+
+                try await avatarStorage.removeAvatar(userId: userId)
+                uploadedAvatarInCurrentSetup = false
+                avatarUrl = nil
+
+            } else {
+
+                avatarUrl = try await uploadAvatar(
                     userId: userId
                 )
+            }
 
             try await profileService
                 .completeProfile(
@@ -180,15 +196,26 @@ final class ProfileSetupViewModel:
                     sportId: selectedSport!.id
                 )
 
+            await finishLoading(
+                startTime: startTime
+            )
+
         } catch {
 
             errorMessage =
-                error.localizedDescription
-        }
+                userFacingMessage(for: error)
 
-        await finishLoading(
-            startTime: startTime
-        )
+            AppLogger.error(
+                "Profile setup failed",
+                error: error
+            )
+
+            await finishLoading(
+                startTime: startTime
+            )
+
+            throw error
+        }
     }
 
     // MARK: - Validation
@@ -233,12 +260,10 @@ final class ProfileSetupViewModel:
                 startTime
             )
 
-        let minimumDuration = 2.0
-
-        if elapsed < minimumDuration {
+        if elapsed < minimumLoadingDuration {
 
             let remaining =
-                minimumDuration - elapsed
+                minimumLoadingDuration - elapsed
 
             try? await Task.sleep(
                 for: .seconds(remaining)
@@ -251,5 +276,25 @@ final class ProfileSetupViewModel:
 
             isLoading = false
         }
+    }
+
+    private func userFacingMessage(
+        for error: Error
+    ) -> String {
+
+        if let encodingError = error as? AvatarImageEncodingError {
+            return encodingError.localizedDescription
+        }
+
+        return "Couldn’t save your profile. Please try again."
+    }
+}
+
+private enum ProfileSetupSubmissionError: LocalizedError {
+
+    case alreadyInProgress
+
+    var errorDescription: String? {
+        "Your profile is already being saved."
     }
 }
