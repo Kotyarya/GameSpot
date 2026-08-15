@@ -83,29 +83,4 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
-    func signInWithApple(
-        session: SessionManager
-    ) {
-
-        Task {
-
-            do {
-
-                errorMessage = nil
-                isLoading = true
-
-                try await AuthService.shared
-                    .signInWithApple()
-
-                session.refreshUser()
-
-            } catch {
-
-                errorMessage =
-                    error.localizedDescription
-            }
-
-            isLoading = false
-        }
-    }
 }

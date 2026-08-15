@@ -36,13 +36,6 @@ final class AuthService: @unchecked Sendable {
         )
     }
 
-    func signInWithApple() async throws {
-
-        try await client.auth.signInWithOAuth(
-            provider: .apple
-        )
-    }
-
     func signOut() async throws {
 
         try await client.auth.signOut()

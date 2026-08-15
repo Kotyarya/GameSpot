@@ -19,7 +19,6 @@ The following capabilities are **implemented in the current codebase**:
 ### Authentication & Onboarding
 
 - Email/password **sign in** and **sign up** via Supabase Auth (`AuthService`, `AuthView`).
-- **Sign in with Apple** UI is present but currently **disabled** in `AuthView`.
 - Multi-step **onboarding** carousel with location permission request (`OnBoardingView`).
 - **Profile setup** flow: avatar upload (Supabase Storage), username availability check, favorite sport selection (`ProfileSetupView`).
 
@@ -157,7 +156,7 @@ Each domain has a dedicated service class using `SupabaseService.shared.client`:
 
 | Service | Responsibility |
 |---------|----------------|
-| `AuthService` | Sign up, sign in, sign out, Apple OAuth |
+| `AuthService` | Email/password sign up, sign in, and sign out |
 | `ProfileService` | Profiles, stats, recent matches, onboarding |
 | `GameService` | CRUD-style game operations via RPCs |
 | `ParkService` | Parks, hours, images, ratings |
@@ -188,7 +187,7 @@ Each domain has a dedicated service class using `SupabaseService.shared.client`:
 | UI | SwiftUI | iOS 26 APIs (`glassEffect`, modern MapKit) |
 | Architecture | MVVM | Feature modules + service layer |
 | Backend | [Supabase](https://supabase.com/) | `supabase-swift` **2.44.1** |
-| Auth | Supabase Auth | Email/password; Apple OAuth stub |
+| Auth | Supabase Auth | Email/password |
 | Database | Supabase Postgres | Tables + RPC functions |
 | Realtime | Supabase Realtime V2 | Postgres change subscriptions |
 | Storage | Supabase Storage | `avatars` bucket |
@@ -444,7 +443,6 @@ The project includes **XCTest** unit tests, ViewModel tests, and basic UI tests.
 The current version of the application has several limitations:
 
 - The application requires an active internet connection.
-- Sign in with Apple functionality has been implemented but is not currently enabled.
 - The application does not support offline mode.
 - Some features depending on maps and geolocation may increase battery consumption.
 - Performance may vary depending on network quality and backend availability.
@@ -456,7 +454,7 @@ The current version of the application has several limitations:
 
 Possible future development directions include:
 
-1. Full support for Sign in with Apple authentication.
+1. Optional Sign in with Apple authentication for a future version.
 2. Offline mode with local data caching.
 3. Push notifications for upcoming matches and MVP voting.
 4. Enhanced geolocation features and nearby venue recommendations.

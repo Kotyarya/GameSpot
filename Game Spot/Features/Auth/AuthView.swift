@@ -1,5 +1,4 @@
 import SwiftUI
-import AuthenticationServices
 
 struct AuthView: View {
 
@@ -223,10 +222,6 @@ private extension AuthView {
             errorSection
 
             mainButton
-
-            dividerSection
-
-            appleButton
 
             switchModeButton
         }
@@ -565,53 +560,6 @@ private extension AuthView {
             ? 1
             : 0.6
         )
-    }
-
-    var dividerSection: some View {
-
-        HStack {
-
-            Rectangle()
-                .fill(.gray.opacity(0.25))
-                .frame(height: 1)
-
-            Text("or")
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 8)
-
-            Rectangle()
-                .fill(.gray.opacity(0.25))
-                .frame(height: 1)
-        }
-    }
-
-    var appleButton: some View {
-
-        SignInWithAppleButton(
-            isLogin
-            ? .signIn
-            : .signUp
-        ) { request in
-
-            request.requestedScopes = [
-                .fullName,
-                .email
-            ]
-
-        } onCompletion: { _ in
-
-            vm.signInWithApple(
-                session: session
-            )
-        }
-        .frame(height: 56)
-        .clipShape(
-            RoundedRectangle(
-                cornerRadius: 18,
-                style: .continuous
-            )
-        )
-        .disabled(true)
     }
 
     var switchModeButton: some View {

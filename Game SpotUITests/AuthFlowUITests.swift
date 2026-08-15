@@ -33,6 +33,16 @@ final class AuthFlowUITests: XCTestCase {
         )
     }
 
+    func testAuthScreenDoesNotOfferUnavailableAppleSignIn() throws {
+        let signInButton = app.buttons["Sign In"]
+        XCTAssertTrue(signInButton.waitForExistence(timeout: 15))
+
+        XCTAssertFalse(
+            app.buttons["Sign in with Apple"].exists,
+            "Version 1.0 must not offer an unavailable sign-in method."
+        )
+    }
+
     func testAuthScreenCanSwitchToSignUpMode() throws {
         let signUpLink = app.staticTexts["Sign Up"]
         XCTAssertTrue(
