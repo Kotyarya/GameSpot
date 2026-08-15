@@ -65,6 +65,9 @@ JWT-protected Edge Function removes the user's avatar, transactionally deletes o
 related application data, deletes the Supabase Auth user, and only then lets the app clear its
 local session.
 
+GameSpot requests foreground-only location access to show the user's position on the map and
+help them find nearby sports parks. It does not request background location access.
+
 ### Rankings & Leagues
 
 - Six leagues: Bronze, Silver, Gold, Diamond, Ruby, King (`RankLeague`).
