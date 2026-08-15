@@ -1,6 +1,5 @@
 import Foundation
 import SwiftUI
-import Supabase
 import Combine
 
 @MainActor
@@ -22,23 +21,28 @@ final class ProfileViewModel: ObservableObject {
 
     // MARK: - Services
 
-    private let service = ProfileService.shared
+    private let service: any ProfileFetching
 
-    // MARK: - Realtime
-
-    private var realtimeChannel: RealtimeChannelV2?
-
-    private var profileSubscription:
-        RealtimeSubscription?
-
-    private var statsSubscription:
-        RealtimeSubscription?
+    private let realtime: any ProfileRealtimeSubscribing
 
     // MARK: - Properties
 
-    private let minimumLoadingDuration = 2.0
+    private let minimumLoadingDuration: TimeInterval
 
     private var hasSubscribed = false
+
+    // MARK: - Init
+
+    init(
+        service: any ProfileFetching = ProfileService.shared,
+        realtime: any ProfileRealtimeSubscribing = SupabaseProfileRealtimeService(),
+        minimumLoadingDuration: TimeInterval = 2.0
+    ) {
+
+        self.service = service
+        self.realtime = realtime
+        self.minimumLoadingDuration = minimumLoadingDuration
+    }
 
     // MARK: - Load
 
@@ -82,14 +86,15 @@ final class ProfileViewModel: ObservableObject {
             recentMatches =
                 try await recentMatchesTask
 
+            try Task.checkCancellation()
+
             if !hasSubscribed {
-
-                hasSubscribed = true
-
                 await subscribeToRealtime(
                     userId: userId
                 )
             }
+
+            try Task.checkCancellation()
 
             hasLoadedOnce = true
 
@@ -113,15 +118,17 @@ final class ProfileViewModel: ObservableObject {
 
         } catch {
 
-            errorMessage =
-                error.localizedDescription
+            if !(error is CancellationError) {
+                errorMessage =
+                    error.localizedDescription
+
+                AppLogger.error(
+                    "ProfileViewModel load failed",
+                    error: error
+                )
+            }
 
             isLoading = false
-
-            AppLogger.error(
-                "ProfileViewModel load failed",
-                error: error
-            )
         }
     }
 
@@ -131,27 +138,27 @@ final class ProfileViewModel: ObservableObject {
         userId: UUID
     ) async {
 
-        await realtimeChannel?
-            .unsubscribe()
-
-        realtimeChannel = SupabaseService
-            .shared
-            .client
-            .realtimeV2
-            .channel("profile-realtime")
-
-        setupProfileSubscription(
-            userId: userId
-        )
-
-        setupStatsSubscription(
-            userId: userId
-        )
-
         do {
 
-            try await realtimeChannel?
-                .subscribeWithError()
+            try await realtime.subscribe(
+                userId: userId
+            ) { [weak self] updatedProfile in
+
+                guard let self else {
+                    return
+                }
+
+                withAnimation(.spring) {
+                    self.profile = updatedProfile
+                }
+
+                await self.reloadRecentMatches()
+
+            } onStatsChange: { [weak self] in
+                await self?.reloadStats(userId: userId)
+            }
+
+            hasSubscribed = true
 
             AppLogger.success(
                 "Profile realtime connected"
@@ -159,89 +166,10 @@ final class ProfileViewModel: ObservableObject {
 
         } catch {
 
-            AppLogger.error(
-                "Profile realtime subscribe failed",
-                error: error
-            )
-        }
-    }
-
-    private func setupProfileSubscription(
-        userId: UUID
-    ) {
-
-        profileSubscription =
-        realtimeChannel?.onPostgresChange(
-            UpdateAction.self,
-            schema: "public",
-            table: "profiles",
-            filter: "id=eq.\(userId.uuidString)"
-        ) { payload in
-
-            AppLogger.info(
-                "Profile realtime event"
-            )
-
-            Task { @MainActor [weak self] in
-
-                guard let self else {
-                    return
-                }
-
-                do {
-
-                    let updatedProfile =
-                        try self.decodeRecord(
-                            payload.record,
-                            as: Profile.self
-                        )
-
-                    guard updatedProfile.id == userId else {
-                        return
-                    }
-
-                    withAnimation(.spring) {
-
-                        self.profile = updatedProfile
-                    }
-
-                    await self.reloadRecentMatches()
-
-                    AppLogger.success(
-                        "Profile updated"
-                    )
-
-                } catch {
-
-                    AppLogger.error(
-                        "Profile decode failed",
-                        error: error
-                    )
-                }
-            }
-        }
-    }
-
-    private func setupStatsSubscription(
-        userId: UUID
-    ) {
-
-        statsSubscription =
-        realtimeChannel?.onPostgresChange(
-            UpdateAction.self,
-            schema: "public",
-            table: "user_sport_stats",
-            filter: "user_id=eq.\(userId.uuidString)"
-        ) { _ in
-
-            AppLogger.info(
-                "Stats realtime event"
-            )
-
-            Task { @MainActor [weak self] in
-
-                await self?.reloadStats(
-                    userId: userId
+            if !(error is CancellationError) {
+                AppLogger.error(
+                    "Profile realtime subscribe failed",
+                    error: error
                 )
             }
         }
@@ -303,41 +231,15 @@ final class ProfileViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Helpers
-
-    private func decodeRecord<T: Decodable>(
-        _ record: [String: AnyJSON],
-        as type: T.Type
-    ) throws -> T {
-
-        let jsonObject = record.mapValues {
-            $0.value
-        }
-
-        let data = try JSONSerialization
-            .data(
-                withJSONObject: jsonObject
-            )
-
-        let decoder = JSONDecoder()
-
-        decoder.dateDecodingStrategy = .iso8601
-
-        return try decoder.decode(
-            T.self,
-            from: data
-        )
-    }
-
     // MARK: - Cleanup
 
     deinit {
 
-        let channel = realtimeChannel
+        let realtime = realtime
 
         Task { @MainActor in
 
-            await channel?.unsubscribe()
+            await realtime.unsubscribe()
         }
     }
 }

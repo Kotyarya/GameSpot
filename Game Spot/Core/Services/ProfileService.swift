@@ -1,6 +1,20 @@
 import Foundation
 import Supabase
 
+@MainActor
+protocol ProfileFetching: AnyObject, Sendable {
+
+    func fetchProfile(
+        userId: UUID
+    ) async throws -> Profile
+
+    func fetchUserStats(
+        userId: UUID
+    ) async throws -> [UserSportStats]
+
+    func getRecentMatches() async throws -> [RecentMatch]
+}
+
 final class ProfileService: @unchecked Sendable {
 
     // MARK: - Shared
@@ -137,6 +151,8 @@ final class ProfileService: @unchecked Sendable {
             .execute()
     }
 }
+
+extension ProfileService: ProfileFetching {}
 
 // MARK: - DTOs
 

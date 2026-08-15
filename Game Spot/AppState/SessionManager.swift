@@ -11,6 +11,12 @@ enum AppState {
 }
 
 @MainActor
+protocol SessionRefreshing: AnyObject {
+
+    func refreshUser()
+}
+
+@MainActor
 final class SessionManager: ObservableObject {
 
     // MARK: - State
@@ -83,10 +89,14 @@ final class SessionManager: ObservableObject {
 
     // MARK: - Init
 
-    init() {
+    init(
+        restoreSessionOnInit: Bool = true
+    ) {
 
-        Task {
-            await restoreSession()
+        if restoreSessionOnInit {
+            Task {
+                await restoreSession()
+            }
         }
     }
 
@@ -208,3 +218,5 @@ final class SessionManager: ObservableObject {
         didCheckSession = true
     }
 }
+
+extension SessionManager: SessionRefreshing {}

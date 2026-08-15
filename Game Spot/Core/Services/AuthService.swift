@@ -1,6 +1,20 @@
 import Foundation
 import Supabase
 
+@MainActor
+protocol AuthServing: AnyObject {
+
+    func signUp(
+        email: String,
+        password: String
+    ) async throws
+
+    func signIn(
+        email: String,
+        password: String
+    ) async throws
+}
+
 final class AuthService: @unchecked Sendable {
 
     // MARK: - Shared
@@ -53,3 +67,5 @@ final class AuthService: @unchecked Sendable {
         client.auth.currentUser?.id
     }
 }
+
+extension AuthService: AuthServing {}

@@ -13,11 +13,11 @@ final class SessionManagerAppStateTests: XCTestCase {
 
     private var session: SessionManager!
 
-    override func setUp() async throws {
-        try await super.setUp()
-        session = SessionManager()
-        // Wait for initial restoreSession from init to settle.
-        try await Task.sleep(for: .milliseconds(600))
+    override func setUp() {
+        super.setUp()
+        session = SessionManager(
+            restoreSessionOnInit: false
+        )
     }
 
     func testAppStateLoadingBeforeSessionCheck() {

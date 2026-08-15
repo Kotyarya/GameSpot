@@ -15,6 +15,7 @@ final class AuthFlowUITests: XCTestCase {
         continueAfterFailure = false
         app = XCUIApplication()
         app.launch()
+        signOutIfNeeded()
     }
 
     // MARK: - Launch
@@ -70,5 +71,87 @@ final class AuthFlowUITests: XCTestCase {
             emailField.value as? String,
             "test@example.com"
         )
+    }
+
+    // MARK: - Authenticated Journey
+
+    func testAuthenticatedUserCanOpenPrivacyPolicy() throws {
+        let environment = ProcessInfo.processInfo.environment
+
+        guard
+            let email = environment["GAMESPOT_UI_TEST_EMAIL"],
+            !email.isEmpty,
+            let password = environment["GAMESPOT_UI_TEST_PASSWORD"],
+            !password.isEmpty
+        else {
+            throw XCTSkip(
+                "Set GAMESPOT_UI_TEST_EMAIL and GAMESPOT_UI_TEST_PASSWORD "
+                + "for a fully onboarded test account."
+            )
+        }
+
+        addTeardownBlock { [weak self] in
+            self?.signOutIfNeeded()
+        }
+
+        let emailField = app.textFields["Enter your email"]
+        let passwordField = app.secureTextFields["Enter your password"]
+
+        XCTAssertTrue(emailField.waitForExistence(timeout: 15))
+        XCTAssertTrue(passwordField.waitForExistence(timeout: 5))
+
+        emailField.tap()
+        emailField.typeText(email)
+
+        passwordField.tap()
+        passwordField.typeText(password)
+
+        app.buttons["Sign In"].tap()
+
+        let profileTab = app.tabBars.buttons["Profile"]
+        XCTAssertTrue(
+            profileTab.waitForExistence(timeout: 20),
+            "A valid, fully onboarded test account should reach the main tabs."
+        )
+
+        profileTab.tap()
+
+        let privacyLink = app.descendants(matching: .any)[
+            "profile.privacyPolicy"
+        ]
+        XCTAssertTrue(privacyLink.waitForExistence(timeout: 10))
+        privacyLink.tap()
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)["privacyPolicy.screen"]
+                .waitForExistence(timeout: 5)
+        )
+    }
+
+    // MARK: - Session Isolation
+
+    private func signOutIfNeeded() {
+        let signInButton = app.buttons["Sign In"]
+
+        if signInButton.waitForExistence(timeout: 15) {
+            return
+        }
+
+        let profileTab = app.tabBars.buttons["Profile"]
+
+        guard profileTab.waitForExistence(timeout: 10) else {
+            return
+        }
+
+        profileTab.tap()
+
+        let signOutButton = app.buttons["Sign Out"]
+
+        guard signOutButton.waitForExistence(timeout: 10) else {
+            return
+        }
+
+        signOutButton.tap()
+        _ = signInButton.waitForExistence(timeout: 15)
     }
 }

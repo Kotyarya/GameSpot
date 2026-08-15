@@ -4,6 +4,17 @@ import Combine
 @MainActor
 final class AuthViewModel: ObservableObject {
 
+    private let service: any AuthServing
+
+    // MARK: - Init
+
+    init(
+        service: any AuthServing = AuthService.shared
+    ) {
+
+        self.service = service
+    }
+
     // MARK: - Inputs
 
     @Published var email: String = ""
@@ -27,18 +38,19 @@ final class AuthViewModel: ObservableObject {
 
     // MARK: - Authentication
 
+    @discardableResult
     func signIn(
-        session: SessionManager
-    ) {
+        session: any SessionRefreshing
+    ) -> Task<Void, Never> {
 
-        Task {
+        Task { @MainActor in
 
             do {
 
                 errorMessage = nil
                 isLoading = true
 
-                try await AuthService.shared.signIn(
+                try await service.signIn(
                     email: email,
                     password: password
                 )
@@ -55,18 +67,19 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
+    @discardableResult
     func signUp(
-        session: SessionManager
-    ) {
+        session: any SessionRefreshing
+    ) -> Task<Void, Never> {
 
-        Task {
+        Task { @MainActor in
 
             do {
 
                 errorMessage = nil
                 isLoading = true
 
-                try await AuthService.shared.signUp(
+                try await service.signUp(
                     email: email,
                     password: password
                 )
