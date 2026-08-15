@@ -9,6 +9,12 @@ struct ProfileView: View {
     @StateObject private var viewModel =
         ProfileViewModel()
 
+    @StateObject private var accountDeletionViewModel =
+        AccountDeletionViewModel()
+
+    @State private var showsDeleteConfirmation = false
+    @State private var accountDeletionAlert: AccountDeletionAlert?
+
     // MARK: - Environment
 
     @EnvironmentObject var session:
@@ -66,6 +72,47 @@ struct ProfileView: View {
             await viewModel.load(
                 userId: userId
             )
+        }
+        .confirmationDialog(
+            "Delete Account?",
+            isPresented: $showsDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Continue", role: .destructive) {
+                accountDeletionAlert = .finalConfirmation
+            }
+
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(
+                "This permanently removes your profile, avatar, match participation, MVP votes, and park reviews."
+            )
+        }
+        .alert(item: $accountDeletionAlert) { alert in
+            switch alert {
+            case .finalConfirmation:
+                Alert(
+                    title: Text("Permanently Delete Account?"),
+                    message: Text(
+                        "This action cannot be undone. You will be signed out and will not be able to sign in to this account again."
+                    ),
+                    primaryButton: .destructive(
+                        Text("Delete Forever")
+                    ) {
+                        Task {
+                            await deleteAccount()
+                        }
+                    },
+                    secondaryButton: .cancel()
+                )
+
+            case let .error(message):
+                Alert(
+                    title: Text("Couldn’t Delete Account"),
+                    message: Text(message),
+                    dismissButton: .default(Text("OK"))
+                )
+            }
         }
     }
 
@@ -290,6 +337,8 @@ struct ProfileView: View {
             sportStatsSection
 
             signOutSection
+
+            deleteAccountSection
         }
         .padding(.horizontal, 20)
         .padding(.top, 32)
@@ -626,6 +675,49 @@ struct ProfileView: View {
         )
     }
 
+    // MARK: - Delete Account
+
+    private var deleteAccountSection: some View {
+        Button(role: .destructive) {
+            showsDeleteConfirmation = true
+        } label: {
+            HStack(spacing: 8) {
+                if accountDeletionViewModel.isDeleting {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Image(systemName: "trash")
+                }
+
+                Text(
+                    accountDeletionViewModel.isDeleting
+                    ? "Deleting Account…"
+                    : "Delete Account"
+                )
+                .font(.headline)
+                .fontWeight(.semibold)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+        }
+        .buttonStyle(.glass)
+        .foregroundStyle(.red)
+        .disabled(accountDeletionViewModel.isDeleting)
+        .accessibilityIdentifier("profile.deleteAccount")
+    }
+
+    private func deleteAccount() async {
+        guard await accountDeletionViewModel.deleteAccount() else {
+            accountDeletionAlert = .error(
+                accountDeletionViewModel.errorMessage
+                ?? "Please try again."
+            )
+            return
+        }
+
+        await session.completeAccountDeletion()
+    }
+
     // MARK: - Stat Item
 
     @ViewBuilder
@@ -646,6 +738,20 @@ struct ProfileView: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
+    }
+}
+
+private enum AccountDeletionAlert: Identifiable {
+    case finalConfirmation
+    case error(String)
+
+    var id: String {
+        switch self {
+        case .finalConfirmation:
+            "finalConfirmation"
+        case let .error(message):
+            "error-\(message)"
+        }
     }
 }
 

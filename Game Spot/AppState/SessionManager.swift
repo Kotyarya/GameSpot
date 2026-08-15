@@ -187,4 +187,24 @@ final class SessionManager: ObservableObject {
             )
         }
     }
+
+    // MARK: - Account Deletion
+
+    func completeAccountDeletion() async {
+        do {
+            try await AuthService.shared.signOut()
+        } catch {
+            // Supabase removes the local session before the remote logout request.
+            AppLogger.error(
+                "Post-deletion sign out failed",
+                error: error
+            )
+        }
+
+        user = nil
+        profile = nil
+        error = nil
+        isLoading = false
+        didCheckSession = true
+    }
 }

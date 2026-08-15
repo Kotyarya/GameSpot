@@ -60,6 +60,11 @@ participation rewards are granted once and a three-minute MVP window opens for m
 participants. The backend closes that window, selects the MVP, grants the MVP reward once,
 and marks the match processed.
 
+Authenticated users can initiate permanent account deletion from the Profile screen. A
+JWT-protected Edge Function removes the user's avatar, transactionally deletes or anonymizes
+related application data, deletes the Supabase Auth user, and only then lets the app clear its
+local session.
+
 ### Rankings & Leagues
 
 - Six leagues: Bronze, Silver, Gold, Diamond, Ruby, King (`RankLeague`).
