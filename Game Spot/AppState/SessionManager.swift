@@ -31,6 +31,8 @@ final class SessionManager: ObservableObject {
 
     @Published var didCheckSession = false
 
+    @Published private(set) var authNotice: String?
+
     // MARK: - App State
 
     var appState: AppState {
@@ -84,14 +86,20 @@ final class SessionManager: ObservableObject {
 
     // MARK: - Dependencies
 
-    private let client =
-        SupabaseService.shared.client
+    private let authService: any SessionAuthServing
+
+    private let profileService: any ProfileFetching
 
     // MARK: - Init
 
     init(
+        authService: any SessionAuthServing = AuthService.shared,
+        profileService: any ProfileFetching = ProfileService.shared,
         restoreSessionOnInit: Bool = true
     ) {
+
+        self.authService = authService
+        self.profileService = profileService
 
         if restoreSessionOnInit {
             Task {
@@ -112,7 +120,7 @@ final class SessionManager: ObservableObject {
             didCheckSession = true
         }
 
-        user = client.auth.currentUser
+        user = authService.currentUser
 
         guard user != nil else {
             return
@@ -125,7 +133,7 @@ final class SessionManager: ObservableObject {
 
     func refreshUser() {
 
-        user = client.auth.currentUser
+        user = authService.currentUser
 
         profile = nil
 
@@ -155,7 +163,7 @@ final class SessionManager: ObservableObject {
         do {
 
             let profile =
-                try await ProfileService.shared
+                try await profileService
                     .fetchProfile(
                         userId: userId
                     )
@@ -182,8 +190,7 @@ final class SessionManager: ObservableObject {
 
         do {
 
-            try await AuthService.shared
-                .signOut()
+            try await authService.signOut()
 
             self.user = nil
 
@@ -198,11 +205,44 @@ final class SessionManager: ObservableObject {
         }
     }
 
+    // MARK: - Password Recovery
+
+    func finishPasswordRecovery() async {
+        await clearRecoverySession()
+        authNotice = "Password updated. Sign in with your new password."
+    }
+
+    func cancelPasswordRecovery() async {
+        await clearRecoverySession()
+        authNotice = nil
+    }
+
+    func clearAuthNotice() {
+        authNotice = nil
+    }
+
+    private func clearRecoverySession() async {
+        do {
+            try await authService.signOut()
+        } catch {
+            AppLogger.error(
+                "Password recovery sign out failed",
+                error: error
+            )
+        }
+
+        user = nil
+        profile = nil
+        error = nil
+        isLoading = false
+        didCheckSession = true
+    }
+
     // MARK: - Account Deletion
 
     func completeAccountDeletion() async {
         do {
-            try await AuthService.shared.signOut()
+            try await authService.signOut()
         } catch {
             // Supabase removes the local session before the remote logout request.
             AppLogger.error(

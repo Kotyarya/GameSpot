@@ -27,11 +27,15 @@ final class AuthViewModel: ObservableObject {
 
     @Published var errorMessage: String?
 
+    @Published private(set) var statusMessage: String?
+
+    @Published private(set) var pendingConfirmationEmail: String?
+
     // MARK: - Validation
 
     var isValid: Bool {
 
-        !email.isEmpty
+        !normalizedEmail.isEmpty
         && !password.isEmpty
         && password.count >= 6
     }
@@ -45,13 +49,17 @@ final class AuthViewModel: ObservableObject {
 
         Task { @MainActor in
 
+            guard !isLoading else {
+                return
+            }
+
             do {
 
-                errorMessage = nil
+                resetFeedback()
                 isLoading = true
 
                 try await service.signIn(
-                    email: email,
+                    email: normalizedEmail,
                     password: password
                 )
 
@@ -59,8 +67,7 @@ final class AuthViewModel: ObservableObject {
 
             } catch {
 
-                errorMessage =
-                    error.localizedDescription
+                errorMessage = "Couldn’t sign in. Check your details and connection, then try again."
             }
 
             isLoading = false
@@ -74,26 +81,81 @@ final class AuthViewModel: ObservableObject {
 
         Task { @MainActor in
 
+            guard !isLoading else {
+                return
+            }
+
             do {
 
-                errorMessage = nil
+                resetFeedback()
+                pendingConfirmationEmail = nil
                 isLoading = true
 
-                try await service.signUp(
-                    email: email,
+                let result = try await service.signUp(
+                    email: normalizedEmail,
                     password: password
                 )
 
-                session.refreshUser()
+                switch result {
+                case .signedIn:
+                    session.refreshUser()
+                case .confirmationRequired(let email):
+                    pendingConfirmationEmail = email
+                    statusMessage = nil
+                }
 
             } catch {
 
-                errorMessage =
-                    error.localizedDescription
+                errorMessage = "Couldn’t create your account. Check your connection and try again."
             }
 
             isLoading = false
         }
+    }
+
+    @discardableResult
+    func resendSignUpConfirmation() -> Task<Void, Never> {
+
+        Task { @MainActor in
+
+            guard let pendingConfirmationEmail else {
+                return
+            }
+
+            errorMessage = nil
+            statusMessage = nil
+            isLoading = true
+
+            do {
+                try await service.resendSignUpConfirmation(
+                    email: pendingConfirmationEmail
+                )
+
+                statusMessage = "Confirmation email sent. Open the link on this device."
+
+            } catch {
+                errorMessage = "Couldn’t resend the confirmation email. Please try again."
+            }
+
+            isLoading = false
+        }
+    }
+
+    func returnToSignIn() {
+        pendingConfirmationEmail = nil
+        resetFeedback()
+        password = ""
+    }
+
+    func resetFeedback() {
+        statusMessage = nil
+        errorMessage = nil
+    }
+
+    var normalizedEmail: String {
+        email
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
     }
 
 }

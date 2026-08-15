@@ -4,6 +4,8 @@ internal import Auth
 struct RootView: View {
     
     @EnvironmentObject var session: SessionManager
+
+    @EnvironmentObject var authLinks: AuthLinkCoordinator
     
     @State private var isCompleting = false
     
@@ -58,44 +60,65 @@ struct RootView: View {
     var body: some View {
         
         ZStack {
-            
-            switch session.appState {
-                
-            case .auth:
-                
-                AuthView()
-                    .transition(.opacity)
-                
-            case .loading:
-                
+
+            if authLinks.isProcessing {
+
                 LoadingView()
                     .transition(.opacity)
-                
-            case .onboarding:
-                
-                OnBoardingView {
-                    completeOnboarding()
+
+            } else if authLinks.showsPasswordRecovery {
+
+                PasswordRecoveryView()
+                    .transition(.opacity)
+
+            } else {
+
+                switch session.appState {
+
+                case .auth:
+
+                    AuthView()
+                        .transition(.opacity)
+
+                case .loading:
+
+                    LoadingView()
+                        .transition(.opacity)
+
+                case .onboarding:
+
+                    OnBoardingView {
+                        completeOnboarding()
+                    }
+                    .transition(.opacity)
+
+                case .profileSetup:
+
+                    ProfileSetupView()
+                        .transition(.opacity)
+
+                case .main:
+
+                    MainTabView()
+                        .transition(.opacity)
                 }
-                .transition(.opacity)
-                
-            case .profileSetup:
-                
-                ProfileSetupView()
-                    .transition(.opacity)
-                
-            case .main:
-                
-                MainTabView()
-                    .transition(.opacity)
             }
         }
         .animation(
             .easeInOut(duration: 0.35),
             value: session.appState
         )
+        .animation(
+            .easeInOut(duration: 0.25),
+            value: authLinks.state
+        )
     }
 }
 
 #Preview {
     RootView()
+        .environmentObject(
+            SessionManager(restoreSessionOnInit: false)
+        )
+        .environmentObject(AuthLinkCoordinator())
 }

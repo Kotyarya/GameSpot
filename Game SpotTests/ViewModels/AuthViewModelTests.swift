@@ -28,6 +28,8 @@ final class AuthViewModelTests: XCTestCase {
 
         XCTAssertFalse(viewModel.isLoading)
         XCTAssertNil(viewModel.errorMessage)
+        XCTAssertNil(viewModel.statusMessage)
+        XCTAssertNil(viewModel.pendingConfirmationEmail)
         XCTAssertEqual(viewModel.email, "")
         XCTAssertEqual(viewModel.password, "")
     }
@@ -60,7 +62,7 @@ final class AuthViewModelTests: XCTestCase {
         XCTAssertEqual(session.refreshCallCount, 0)
         XCTAssertEqual(
             viewModel.errorMessage,
-            AuthTestError.rejected.localizedDescription
+            "Couldn’t sign in. Check your details and connection, then try again."
         )
         XCTAssertFalse(viewModel.isLoading)
     }
@@ -85,6 +87,67 @@ final class AuthViewModelTests: XCTestCase {
         XCTAssertEqual(session.refreshCallCount, 1)
     }
 
+    func testSignUpWithSessionRefreshesUser() async {
+        let service = AuthServiceStub(
+            signUpResult: .signedIn
+        )
+        let session = SessionRefreshingStub()
+        let viewModel = makeViewModel(service: service)
+        viewModel.email = " Player@Example.com "
+        viewModel.password = "Password1"
+
+        await viewModel.signUp(session: session).value
+
+        XCTAssertEqual(service.receivedSignUpEmail, "player@example.com")
+        XCTAssertEqual(session.refreshCallCount, 1)
+        XCTAssertNil(viewModel.pendingConfirmationEmail)
+    }
+
+    func testSignUpWithoutSessionShowsEmailConfirmation() async {
+        let service = AuthServiceStub(
+            signUpResult: .confirmationRequired(
+                email: "player@example.com"
+            )
+        )
+        let session = SessionRefreshingStub()
+        let viewModel = makeViewModel(service: service)
+        viewModel.email = "player@example.com"
+        viewModel.password = "Password1"
+
+        await viewModel.signUp(session: session).value
+
+        XCTAssertEqual(session.refreshCallCount, 0)
+        XCTAssertEqual(
+            viewModel.pendingConfirmationEmail,
+            "player@example.com"
+        )
+    }
+
+    func testResendConfirmationKeepsGenericSuccessState() async {
+        let service = AuthServiceStub(
+            signUpResult: .confirmationRequired(
+                email: "player@example.com"
+            )
+        )
+        let session = SessionRefreshingStub()
+        let viewModel = makeViewModel(service: service)
+        viewModel.email = "player@example.com"
+        viewModel.password = "Password1"
+
+        await viewModel.signUp(session: session).value
+        await viewModel.resendSignUpConfirmation().value
+
+        XCTAssertEqual(
+            service.receivedResendEmail,
+            "player@example.com"
+        )
+        XCTAssertEqual(
+            viewModel.statusMessage,
+            "Confirmation email sent. Open the link on this device."
+        )
+        XCTAssertNil(viewModel.errorMessage)
+    }
+
     private func makeViewModel(
         service: (any AuthServing)? = nil
     ) -> AuthViewModel {
@@ -99,17 +162,27 @@ final class AuthViewModelTests: XCTestCase {
 private final class AuthServiceStub: AuthServing {
 
     private let signInError: Error?
+    private let signUpResult: AuthSignUpResult
     private(set) var receivedSignInEmail: String?
     private(set) var receivedSignInPassword: String?
+    private(set) var receivedSignUpEmail: String?
+    private(set) var receivedResendEmail: String?
 
-    init(signInError: Error? = nil) {
+    init(
+        signInError: Error? = nil,
+        signUpResult: AuthSignUpResult = .signedIn
+    ) {
         self.signInError = signInError
+        self.signUpResult = signUpResult
     }
 
     func signUp(
         email: String,
         password: String
-    ) async throws {}
+    ) async throws -> AuthSignUpResult {
+        receivedSignUpEmail = email
+        return signUpResult
+    }
 
     func signIn(
         email: String,
@@ -123,6 +196,12 @@ private final class AuthServiceStub: AuthServing {
             throw signInError
         }
     }
+
+    func resendSignUpConfirmation(
+        email: String
+    ) async throws {
+        receivedResendEmail = email
+    }
 }
 
 @MainActor
@@ -134,7 +213,9 @@ private final class SuspendedAuthServiceStub: AuthServing {
     func signUp(
         email: String,
         password: String
-    ) async throws {}
+    ) async throws -> AuthSignUpResult {
+        .signedIn
+    }
 
     func signIn(
         email: String,
@@ -152,6 +233,10 @@ private final class SuspendedAuthServiceStub: AuthServing {
         signInContinuation?.resume()
         signInContinuation = nil
     }
+
+    func resendSignUpConfirmation(
+        email: String
+    ) async throws {}
 }
 
 @MainActor

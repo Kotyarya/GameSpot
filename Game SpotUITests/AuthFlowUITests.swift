@@ -73,6 +73,61 @@ final class AuthFlowUITests: XCTestCase {
         )
     }
 
+    func testForgotPasswordOpensNeutralResetRequest() throws {
+        let forgotButton = app.buttons["auth.forgotPassword"]
+        XCTAssertTrue(forgotButton.waitForExistence(timeout: 15))
+
+        forgotButton.tap()
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "passwordReset.request.screen"
+            ].waitForExistence(timeout: 5)
+        )
+        XCTAssertTrue(
+            app.textFields["passwordReset.request.email"].exists
+        )
+        XCTAssertTrue(
+            app.staticTexts[
+                "We’ll send a reset link if an account exists. Open the link on this device."
+            ].exists
+        )
+    }
+
+    func testRecoveryDeepLinkStateShowsNewPasswordForm() throws {
+        relaunch(
+            arguments: ["--ui-test-password-recovery-ready"]
+        )
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "passwordRecovery.screen"
+            ].waitForExistence(timeout: 10)
+        )
+        XCTAssertTrue(
+            app.secureTextFields["passwordRecovery.password"].exists
+        )
+        XCTAssertTrue(
+            app.buttons["passwordRecovery.submit"].exists
+        )
+    }
+
+    func testExpiredRecoveryLinkShowsActionableError() throws {
+        relaunch(
+            arguments: ["--ui-test-password-recovery-expired"]
+        )
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "passwordRecovery.invalid"
+            ].waitForExistence(timeout: 10)
+        )
+        XCTAssertTrue(
+            app.buttons["Back to Sign In"]
+                .waitForExistence(timeout: 3)
+        )
+    }
+
     // MARK: - Authenticated Journey
 
     func testAuthenticatedUserCanOpenPrivacyPolicy() throws {
@@ -153,5 +208,14 @@ final class AuthFlowUITests: XCTestCase {
 
         signOutButton.tap()
         _ = signInButton.waitForExistence(timeout: 15)
+    }
+
+    private func relaunch(
+        arguments: [String]
+    ) {
+        app.terminate()
+        app = XCUIApplication()
+        app.launchArguments = arguments
+        app.launch()
     }
 }

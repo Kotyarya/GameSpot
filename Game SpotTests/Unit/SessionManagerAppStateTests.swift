@@ -6,6 +6,7 @@
 //
 
 import XCTest
+import Supabase
 @testable import Game_Spot
 
 @MainActor
@@ -85,5 +86,37 @@ final class SessionManagerAppStateTests: XCTestCase {
 
         XCTAssertTrue(profile.isOnboarded)
         XCTAssertTrue(profile.isProfileCompleted)
+    }
+
+    func testFinishPasswordRecoveryClearsSessionAndShowsNotice() async {
+        let authService = SessionAuthServiceStub()
+        let recoverySession = SessionManager(
+            authService: authService,
+            restoreSessionOnInit: false
+        )
+
+        await recoverySession.finishPasswordRecovery()
+
+        XCTAssertEqual(authService.signOutCallCount, 1)
+        XCTAssertNil(recoverySession.user)
+        XCTAssertNil(recoverySession.profile)
+        XCTAssertTrue(recoverySession.didCheckSession)
+        XCTAssertEqual(
+            recoverySession.authNotice,
+            "Password updated. Sign in with your new password."
+        )
+        XCTAssertEqual(recoverySession.appState, .auth)
+    }
+}
+
+@MainActor
+private final class SessionAuthServiceStub: SessionAuthServing {
+
+    var currentUser: User? { nil }
+
+    private(set) var signOutCallCount = 0
+
+    func signOut() async throws {
+        signOutCallCount += 1
     }
 }

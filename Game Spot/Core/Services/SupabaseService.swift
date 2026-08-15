@@ -9,7 +9,13 @@ final class SupabaseService: @unchecked Sendable {
     private init() {
         client = SupabaseClient(
             supabaseURL: AppConfiguration.supabaseURL,
-            supabaseKey: AppConfiguration.supabasePublishableKey
+            supabaseKey: AppConfiguration.supabasePublishableKey,
+            options: SupabaseClientOptions(
+                auth: .init(
+                    redirectToURL: AuthRedirect.emailConfirmation,
+                    emitLocalSessionAsInitialSession: true
+                )
+            )
         )
     }
 }

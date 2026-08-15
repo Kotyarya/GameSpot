@@ -37,11 +37,24 @@ private struct RootAppContent: View {
 
     @StateObject private var session = SessionManager()
     @StateObject private var router = AppRouter()
+    @StateObject private var authLinks = AuthLinkCoordinator()
 
     var body: some View {
 
         RootView()
             .environmentObject(session)
             .environmentObject(router)
+            .environmentObject(authLinks)
+            .onOpenURL { url in
+                Task {
+                    let route = await authLinks.handle(url)
+
+                    if route == .emailConfirmation,
+                       authLinks.state == .emailConfirmed {
+                        session.refreshUser()
+                        authLinks.reset()
+                    }
+                }
+            }
     }
 }
