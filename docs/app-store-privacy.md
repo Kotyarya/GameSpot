@@ -71,7 +71,8 @@ analytics, or tracking purposes for the current build.
 
 - [x] Use the owner-approved monitored public support email
   `gamespot.support@icloud.com` in `docs/privacy-policy.md` and the app.
-- [ ] Publish the completed policy at a stable public HTTPS URL.
+- [x] Publish the completed policy at a stable public HTTPS URL:
+  <https://kotyarya.github.io/GameSpot/>.
 - [ ] Put that URL in App Store Connect and verify it without authentication.
 - [ ] Confirm the same support contact in App Store Connect.
 - [ ] Generate and inspect Xcode's privacy report from the final archive.
