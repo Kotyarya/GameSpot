@@ -295,14 +295,20 @@ The backend is a **Supabase Postgres** project. Its application schema is versio
 |--------|--------------|---------|
 | `avatars` | `{userId}/avatar.jpg` | Profile avatar upload |
 
-### Recreating the backend locally
+### Recreating and testing the backend locally
 
-Prerequisites: Docker Desktop and the current Supabase CLI.
+Prerequisites: a Docker-compatible runtime, the current Supabase CLI, and `psql`.
 
 ```bash
 # Start the local Supabase stack and apply every migration from a clean database.
 supabase start
 supabase db reset
+
+# Run every assertion-based database regression test against the local database.
+DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres
+for test_file in supabase/tests/database/*.sql; do
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$test_file"
+done
 
 # Stop the local stack when finished.
 supabase stop

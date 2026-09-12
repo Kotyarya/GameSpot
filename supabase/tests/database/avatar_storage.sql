@@ -131,6 +131,12 @@ begin
 end;
 $$;
 
+-- The Storage API enables this transaction-local guard before deleting the
+-- database row after the underlying object has been removed. Keep the guard
+-- enabled in the regression test so the DELETE policy is exercised through
+-- the same database path without weakening production protections.
+select set_config('storage.allow_delete_query', 'true', true);
+
 delete from storage.objects
 where bucket_id = 'avatars'
   and name = '00000000-0000-4000-8000-000000000001/avatar.jpg';
