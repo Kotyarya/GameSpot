@@ -163,7 +163,9 @@ final class AuthFlowUITests: XCTestCase {
 
         app.buttons["Sign In"].tap()
 
-        let profileTab = app.tabBars.buttons["Profile"]
+        let profileTab = app.tabBars.buttons
+            .matching(identifier: "person.crop.circle")
+            .firstMatch
         XCTAssertTrue(
             profileTab.waitForExistence(timeout: 20),
             "A valid, fully onboarded test account should reach the main tabs."
@@ -174,7 +176,15 @@ final class AuthFlowUITests: XCTestCase {
         let privacyLink = app.descendants(matching: .any)[
             "profile.privacyPolicy"
         ]
+
         XCTAssertTrue(privacyLink.waitForExistence(timeout: 10))
+
+        dismissPasswordSavePromptIfPresent(timeout: 5)
+
+        XCTAssertTrue(
+            scrollToHittable(privacyLink),
+            "Privacy Policy should remain tappable after system prompts are dismissed."
+        )
         privacyLink.tap()
 
         XCTAssertTrue(
@@ -185,6 +195,30 @@ final class AuthFlowUITests: XCTestCase {
 
     // MARK: - Session Isolation
 
+    private func dismissPasswordSavePromptIfPresent(
+        timeout: TimeInterval
+    ) {
+        let notNowButton = app.buttons["Not Now"]
+
+        if notNowButton.waitForExistence(timeout: timeout) {
+            notNowButton.tap()
+        }
+    }
+
+    private func scrollToHittable(
+        _ element: XCUIElement
+    ) -> Bool {
+        for _ in 0..<6 {
+            if element.isHittable {
+                return true
+            }
+
+            app.swipeUp()
+        }
+
+        return element.isHittable
+    }
+
     private func signOutIfNeeded() {
         let signInButton = app.buttons["Sign In"]
 
@@ -192,7 +226,9 @@ final class AuthFlowUITests: XCTestCase {
             return
         }
 
-        let profileTab = app.tabBars.buttons["Profile"]
+        let profileTab = app.tabBars.buttons
+            .matching(identifier: "person.crop.circle")
+            .firstMatch
 
         guard profileTab.waitForExistence(timeout: 10) else {
             return
