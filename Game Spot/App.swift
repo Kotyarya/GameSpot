@@ -14,7 +14,13 @@ struct Game_SpotApp: App {
     private var appContent: some View {
 
         #if DEBUG
-        if let scenario = ContentStateUITestScenario.current {
+        if ProcessInfo.processInfo.arguments.contains(
+            "--ui-test-location-permission"
+        ) {
+
+            OnBoardingView()
+
+        } else if let scenario = ContentStateUITestScenario.current {
 
             ContentStateUITestHarness(scenario: scenario)
 
