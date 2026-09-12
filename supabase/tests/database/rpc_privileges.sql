@@ -7,6 +7,16 @@ do $$
 declare
   signature text;
 begin
+  if to_regprocedure('public.rls_auto_enable()') is not null then
+    if has_function_privilege(
+      'anon', 'public.rls_auto_enable()', 'EXECUTE'
+    ) or has_function_privilege(
+      'authenticated', 'public.rls_auto_enable()', 'EXECUTE'
+    ) then
+      raise exception 'client role can execute platform RLS event trigger';
+    end if;
+  end if;
+
   foreach signature in array array[
     'public.create_game(uuid,uuid,timestamp with time zone)',
     'public.finish_games()',

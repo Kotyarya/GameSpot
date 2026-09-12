@@ -18,7 +18,8 @@ begin
   where namespace.nspname = 'public'
     and function_name.prokind = 'f'
     and not coalesce(
-      function_name.proconfig @> array['search_path=public, pg_temp']::text[],
+      function_name.proconfig @> array['search_path=public, pg_temp']::text[]
+      or function_name.proconfig @> array['search_path=pg_catalog']::text[],
       false
     );
 
