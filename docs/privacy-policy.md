@@ -1,3 +1,7 @@
+---
+title: GameSpot Privacy Policy
+---
+
 # GameSpot Privacy Policy
 
 Last updated: September 12, 2026
