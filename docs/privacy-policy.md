@@ -1,9 +1,6 @@
 # GameSpot Privacy Policy
 
-Last updated: August 15, 2026
-
-> Release status: the policy text is complete, but it must not be published until
-> `{{SUPPORT_CONTACT}}` is replaced with a monitored public support email or URL.
+Last updated: September 12, 2026
 
 This Privacy Policy explains how GameSpot ("GameSpot", "we", "us") handles
 information when you use the GameSpot iOS application.
@@ -101,4 +98,4 @@ latest version will show its effective date at the top of this page.
 
 For privacy questions, deletion assistance, or support, contact:
 
-`{{SUPPORT_CONTACT}}`
+[gamespot.support@icloud.com](mailto:gamespot.support@icloud.com)

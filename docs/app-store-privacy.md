@@ -69,8 +69,8 @@ analytics, or tracking purposes for the current build.
 
 ## Final release gates
 
-- [ ] Replace `{{SUPPORT_CONTACT}}` in `docs/privacy-policy.md` with a monitored
-  public support email or URL approved by the owner.
+- [x] Use the owner-approved monitored public support email
+  `gamespot.support@icloud.com` in `docs/privacy-policy.md` and the app.
 - [ ] Publish the completed policy at a stable public HTTPS URL.
 - [ ] Put that URL in App Store Connect and verify it without authentication.
 - [ ] Confirm the same support contact in App Store Connect.

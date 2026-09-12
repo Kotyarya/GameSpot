@@ -44,7 +44,7 @@ struct PrivacyPolicyView: View {
 
                 policySection(
                     title: "Contact",
-                    text: "For privacy questions or support, use the support contact listed with GameSpot in the App Store."
+                    text: "For privacy questions, deletion assistance, or support, email gamespot.support@icloud.com."
                 )
             }
             .padding(20)
@@ -60,7 +60,7 @@ struct PrivacyPolicyView: View {
                 .font(.largeTitle)
                 .bold()
 
-            Text("Last updated: August 15, 2026")
+            Text("Last updated: September 12, 2026")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
