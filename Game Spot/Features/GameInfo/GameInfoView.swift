@@ -321,6 +321,7 @@ struct GameInfoView: View {
             if vm.isLoading && vm.details == nil {
                 
                 LoadingView()
+                    .accessibilityIdentifier("gameDetails.loading")
                 
             } else if let details {
                 
@@ -945,35 +946,63 @@ struct GameInfoView: View {
                                     .font(.largeTitle)
                                     .bold()
                                 
-                                HStack {
-                                    Spacer()
-                                    HStack {
-                                        Image(systemName: "thermometer.medium")
-                                            .font(.system(size: 33))
-                                        Text("\(Int(vm.weather?.temperature ?? 0))°C")
-                                            .font(.title2)
-                                            .bold()
-                                            .fontDesign(.rounded)
+                                Group {
+
+                                    if let weather = vm.weather {
+
+                                        HStack {
+                                            Spacer()
+                                            HStack {
+                                                Image(systemName: "thermometer.medium")
+                                                    .font(.system(size: 33))
+                                                Text("\(Int(weather.temperature))°C")
+                                                    .font(.title2)
+                                                    .bold()
+                                                    .fontDesign(.rounded)
+                                            }
+                                            Spacer()
+                                            HStack {
+                                                Image(systemName: "wind")
+                                                    .font(.system(size: 33))
+                                                Text("\(Int(weather.windSpeed)) km/h")
+                                                    .font(.title2)
+                                                    .bold()
+                                                    .fontDesign(.rounded)
+                                            }
+                                            Spacer()
+                                            HStack {
+                                                Image(systemName: "cloud.rain.fill")
+                                                    .font(.system(size: 33))
+                                                Text("\(weather.rainChance)%")
+                                                    .font(.title2)
+                                                    .bold()
+                                                    .fontDesign(.rounded)
+                                            }
+                                            Spacer()
+                                        }
+
+                                    } else {
+
+                                        HStack(spacing: 12) {
+                                            Image(systemName: "cloud.slash")
+
+                                            Text("Weather unavailable")
+                                                .font(.headline)
+
+                                            Spacer()
+
+                                            Button("Refresh") {
+                                                Task {
+                                                    await vm.load(gameId: gameId)
+                                                }
+                                            }
+                                            .buttonStyle(.bordered)
+                                        }
+                                        .padding(.horizontal, 16)
+                                        .accessibilityIdentifier(
+                                            "gameDetails.weather.unavailable"
+                                        )
                                     }
-                                    Spacer()
-                                    HStack {
-                                        Image(systemName: "wind")
-                                            .font(.system(size: 33))
-                                        Text("\(Int(vm.weather?.windSpeed ?? 0)) km/h")
-                                            .font(.title2)
-                                            .bold()
-                                            .fontDesign(.rounded)
-                                    }
-                                    Spacer()
-                                    HStack {
-                                        Image(systemName: "cloud.rain.fill")
-                                            .font(.system(size: 33))
-                                        Text("\(vm.weather?.rainChance ?? 0)%")
-                                            .font(.title2)
-                                            .bold()
-                                            .fontDesign(.rounded)
-                                    }
-                                    Spacer()
                                 }
                                 .padding(.vertical, 16)
                                 .frame(maxWidth: .infinity)
@@ -1006,11 +1035,26 @@ struct GameInfoView: View {
                 
             } else if let error = vm.errorMessage {
                 
-                Text(error)
+                ContentStateView(
+                    title: "Couldn’t Load Game",
+                    message: error,
+                    systemImage: "wifi.exclamationmark",
+                    accessibilityIdentifier: "gameDetails.error",
+                    actionTitle: "Try Again"
+                ) {
+                    Task {
+                        await vm.load(gameId: gameId)
+                    }
+                }
                 
             } else {
                 
-                Text("No Data")
+                ContentStateView(
+                    title: "Game Unavailable",
+                    message: "This game may have been removed. Go back and choose another game.",
+                    systemImage: "sportscourt",
+                    accessibilityIdentifier: "gameDetails.empty"
+                )
             }
         }
         .task {

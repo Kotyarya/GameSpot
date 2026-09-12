@@ -180,7 +180,8 @@ final class ProfileViewModel: ObservableObject {
 
         let startTime = Date()
 
-        if !isLoading,
+        if hasLoadedOnce,
+           !isLoading,
            profile?.id == userId {
             return
         }
@@ -248,7 +249,7 @@ final class ProfileViewModel: ObservableObject {
 
             if !(error is CancellationError) {
                 errorMessage =
-                    error.localizedDescription
+                    "Couldn’t load your profile. Check your connection and try again."
 
                 AppLogger.error(
                     "ProfileViewModel load failed",

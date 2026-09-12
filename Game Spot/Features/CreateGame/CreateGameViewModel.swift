@@ -69,7 +69,8 @@ final class CreateGameViewModel: ObservableObject {
             
             await stopLoadingWithDelay()
             
-            errorMessage = error.localizedDescription
+            errorMessage =
+                "Couldn’t create the game. Check your connection and try again."
             
             AppLogger.error(
                 "CreateGameViewModel create game failed",

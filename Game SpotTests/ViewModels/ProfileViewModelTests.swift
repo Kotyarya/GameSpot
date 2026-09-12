@@ -54,9 +54,32 @@ final class ProfileViewModelTests: XCTestCase {
         XCTAssertFalse(viewModel.hasLoadedOnce)
         XCTAssertEqual(
             viewModel.errorMessage,
-            ProfileTestError.failed.localizedDescription
+            "Couldn’t load your profile. Check your connection and try again."
         )
         XCTAssertTrue(realtime.receivedUserIds.isEmpty)
+    }
+
+    func testRetryAfterPartialLoadFailureCompletesProfile() async {
+        let service = ProfileServiceStub(
+            statsResults: [
+                .failure(ProfileTestError.failed),
+                .success([])
+            ]
+        )
+        let viewModel = makeViewModel(service: service)
+
+        await viewModel.load(userId: TestFixtures.userId)
+
+        XCTAssertNotNil(viewModel.profile)
+        XCTAssertFalse(viewModel.hasLoadedOnce)
+        XCTAssertNotNil(viewModel.errorMessage)
+
+        await viewModel.load(userId: TestFixtures.userId)
+
+        XCTAssertTrue(viewModel.hasLoadedOnce)
+        XCTAssertNil(viewModel.errorMessage)
+        XCTAssertEqual(service.profileCallCount, 2)
+        XCTAssertEqual(service.statsCallCount, 2)
     }
 
     func testLoadSkipsDuplicateRequestForSameUser() async {
@@ -195,15 +218,18 @@ final class ProfileViewModelTests: XCTestCase {
 private class ProfileServiceStub: ProfileFetching {
 
     private let profileResult: Result<Profile, Error>
+    private var statsResults: [Result<[UserSportStats], Error>]
     private(set) var profileCallCount = 0
     private(set) var statsCallCount = 0
     private(set) var matchesCallCount = 0
 
     init(
-        profileResult: Result<Profile, Error> = .success(TestFixtures.profile())
+        profileResult: Result<Profile, Error> = .success(TestFixtures.profile()),
+        statsResults: [Result<[UserSportStats], Error>] = [.success([])]
     ) {
 
         self.profileResult = profileResult
+        self.statsResults = statsResults
     }
 
     func fetchProfile(
@@ -219,7 +245,12 @@ private class ProfileServiceStub: ProfileFetching {
     ) async throws -> [UserSportStats] {
 
         statsCallCount += 1
-        return []
+
+        let result = statsResults.count > 1
+            ? statsResults.removeFirst()
+            : statsResults[0]
+
+        return try result.get()
     }
 
     func getRecentMatches() async throws -> [RecentMatch] {

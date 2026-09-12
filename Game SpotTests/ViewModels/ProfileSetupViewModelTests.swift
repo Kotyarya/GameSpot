@@ -5,6 +5,33 @@ import UIKit
 @MainActor
 final class ProfileSetupViewModelTests: XCTestCase {
 
+    func testSportsLoadFailureCanRetryWithoutTechnicalDetails() async {
+        let sportService = SequencedSportServiceStub(
+            results: [
+                .failure(ProfileSetupTestError.failed),
+                .success([TestFixtures.sport()])
+            ]
+        )
+        let viewModel = makeViewModel(
+            sportService: sportService
+        )
+
+        await viewModel.loadSports()
+
+        XCTAssertTrue(viewModel.sports.isEmpty)
+        XCTAssertEqual(
+            viewModel.sportsErrorMessage,
+            "Couldn’t load sports. Check your connection and try again."
+        )
+        XCTAssertFalse(viewModel.isLoadingSports)
+
+        await viewModel.loadSports()
+
+        XCTAssertEqual(viewModel.sports.count, 1)
+        XCTAssertNil(viewModel.sportsErrorMessage)
+        XCTAssertEqual(sportService.callCount, 2)
+    }
+
     func testPartialProfileFailureCanBeRetriedAfterAvatarUpload() async throws {
         let profileService = ProfileSetupServiceStub(
             completionResults: [
@@ -101,14 +128,18 @@ final class ProfileSetupViewModelTests: XCTestCase {
     }
 
     private func makeViewModel(
-        profileService: ProfileSetupServiceStub,
-        avatarStorage: AvatarStorageStub
+        profileService: ProfileSetupServiceStub? = nil,
+        sportService: (any SportFetching)? = nil,
+        avatarStorage: AvatarStorageStub? = nil
     ) -> ProfileSetupViewModel {
 
         ProfileSetupViewModel(
-            profileService: profileService,
-            sportService: SportServiceStub(),
-            avatarStorage: avatarStorage,
+            profileService: profileService
+                ?? ProfileSetupServiceStub(),
+            sportService: sportService
+                ?? SportServiceStub(),
+            avatarStorage: avatarStorage
+                ?? AvatarStorageStub(),
             minimumLoadingDuration: 0
         )
     }
@@ -196,6 +227,25 @@ private final class SportServiceStub: SportFetching, @unchecked Sendable {
 
     func fetchSports() async throws -> [Sport] {
         [TestFixtures.sport()]
+    }
+}
+
+private final class SequencedSportServiceStub:
+    SportFetching,
+    @unchecked Sendable {
+
+    private var results: [Result<[Sport], Error>]
+    private(set) var callCount = 0
+
+    init(
+        results: [Result<[Sport], Error>]
+    ) {
+        self.results = results
+    }
+
+    func fetchSports() async throws -> [Sport] {
+        callCount += 1
+        return try results.removeFirst().get()
     }
 }
 

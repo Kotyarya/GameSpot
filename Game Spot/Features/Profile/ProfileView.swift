@@ -156,7 +156,25 @@ struct ProfileView: View {
         } else if let error =
                     viewModel.errorMessage {
 
-            Text(error)
+            ContentStateView(
+                title: "Couldn’t Load Profile",
+                message: error,
+                systemImage: "wifi.exclamationmark",
+                accessibilityIdentifier: "profile.error",
+                actionTitle: "Try Again",
+                action: retryProfileLoad
+            )
+
+        } else if viewModel.profile == nil {
+
+            ContentStateView(
+                title: "Profile Unavailable",
+                message: "Your profile isn’t available right now. Try loading it again.",
+                systemImage: "person.crop.circle.badge.exclamationmark",
+                accessibilityIdentifier: "profile.empty",
+                actionTitle: "Try Again",
+                action: retryProfileLoad
+            )
 
         } else {
 
@@ -355,9 +373,17 @@ struct ProfileView: View {
 
             overallProfileSection
 
-            recentMatchesSection
+            if viewModel.recentMatches.isEmpty,
+               viewModel.stats.isEmpty {
 
-            sportStatsSection
+                emptyActivitySection
+
+            } else {
+
+                recentMatchesSection
+
+                sportStatsSection
+            }
 
             avatarManagementSection
 
@@ -369,6 +395,35 @@ struct ProfileView: View {
         }
         .padding(.horizontal, 20)
         .padding(.top, 32)
+    }
+
+    private var emptyActivitySection: some View {
+
+        ContentStateView(
+            title: "No Activity Yet",
+            message: "Join your first game to start building match history and sport stats.",
+            systemImage: "figure.run",
+            accessibilityIdentifier: "profile.activity.empty"
+        )
+        .frame(minHeight: 220)
+        .glassEffect(
+            .regular.tint(.clear),
+            in: RoundedRectangle(
+                cornerRadius: 24,
+                style: .continuous
+            )
+        )
+    }
+
+    private func retryProfileLoad() {
+
+        guard let userId = session.user?.id else {
+            return
+        }
+
+        Task {
+            await viewModel.load(userId: userId)
+        }
     }
 
     // MARK: - Overall Profile

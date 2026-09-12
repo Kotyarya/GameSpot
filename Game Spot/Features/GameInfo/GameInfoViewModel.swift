@@ -47,8 +47,16 @@ final class GameInfoViewModel: ObservableObject {
     func load(
         gameId: UUID
     ) async {
+
+        guard !isLoading else {
+            return
+        }
         
         isLoading = true
+
+        defer {
+            isLoading = false
+        }
         
         errorMessage = nil
         
@@ -58,7 +66,22 @@ final class GameInfoViewModel: ObservableObject {
                 gameId: gameId
             )
             
-            try await loadWeather()
+            do {
+
+                try await loadWeather()
+
+            } catch {
+
+                if error is CancellationError {
+                    throw error
+                }
+
+                weather = nil
+
+                AppLogger.warning(
+                    "Weather unavailable for game details"
+                )
+            }
 
             try Task.checkCancellation()
             
@@ -72,7 +95,7 @@ final class GameInfoViewModel: ObservableObject {
             
             if !(error is CancellationError) {
                 errorMessage =
-                    error.localizedDescription
+                    "Couldn’t load this game. Check your connection and try again."
 
                 AppLogger.error(
                     "GameInfoViewModel load failed",
@@ -81,7 +104,6 @@ final class GameInfoViewModel: ObservableObject {
             }
         }
         
-        isLoading = false
     }
     
     // MARK: - Load Details
@@ -208,7 +230,7 @@ final class GameInfoViewModel: ObservableObject {
         } catch {
             
             errorMessage =
-                error.localizedDescription
+                "Couldn’t join this game. Check your connection and try again."
             
             AppLogger.error(
                 "Join game failed",
@@ -241,7 +263,7 @@ final class GameInfoViewModel: ObservableObject {
         } catch {
             
             errorMessage =
-                error.localizedDescription
+                "Couldn’t leave this game. Check your connection and try again."
             
             AppLogger.error(
                 "Leave game failed",
@@ -283,6 +305,8 @@ final class GameInfoViewModel: ObservableObject {
         guard let details else {
             return
         }
+
+        errorMessage = nil
         
         isSubmittingVote = true
         
@@ -302,7 +326,7 @@ final class GameInfoViewModel: ObservableObject {
         } catch {
             
             errorMessage =
-                error.localizedDescription
+                "Couldn’t submit your vote. Check your connection and try again."
             
             AppLogger.error(
                 "Submit MVP vote failed",

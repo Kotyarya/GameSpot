@@ -9,6 +9,9 @@ enum GamesMode: Equatable {
 }
 
 struct GamesView: View {
+
+    @EnvironmentObject private var router:
+        AppRouter
     
     // MARK: - Properties
     
@@ -65,6 +68,11 @@ struct GamesView: View {
                 
                 loadingView
                 
+            } else if let error = viewModel.errorMessage,
+                      viewModel.games.isEmpty {
+
+                errorView(error)
+
             } else if viewModel.games.isEmpty {
                 
                 emptyView
@@ -106,11 +114,48 @@ struct GamesView: View {
     // MARK: - Empty View
     
     private var emptyView: some View {
-        
-        ContentUnavailableView(
-            "No Games",
-            systemImage: "sportscourt"
-        )
+
+        switch mode {
+
+        case .myGames:
+
+            ContentStateView(
+                title: "No Games Yet",
+                message: "Games you join or create will appear here. Explore a park to find your first game.",
+                systemImage: "sportscourt",
+                accessibilityIdentifier: "games.empty",
+                actionTitle: "Explore Parks"
+            ) {
+                router.selectedTab = .map
+            }
+
+        case .park:
+
+            ContentStateView(
+                title: "No Games at This Park",
+                message: "There are no upcoming games here yet. Go back to the park and create one.",
+                systemImage: "sportscourt",
+                accessibilityIdentifier: "games.empty",
+                actionTitle: "Refresh"
+            ) {
+                retryLoad()
+            }
+        }
+    }
+
+    private func errorView(
+        _ message: String
+    ) -> some View {
+
+        ContentStateView(
+            title: "Couldn’t Load Games",
+            message: message,
+            systemImage: "wifi.exclamationmark",
+            accessibilityIdentifier: "games.error",
+            actionTitle: "Try Again"
+        ) {
+            retryLoad()
+        }
     }
     
     // MARK: - Content View
@@ -131,6 +176,15 @@ struct GamesView: View {
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
+        }
+        .refreshable {
+            await viewModel.load(mode: mode)
+        }
+    }
+
+    private func retryLoad() {
+        Task {
+            await viewModel.retry()
         }
     }
     
@@ -186,4 +240,3 @@ struct GamesView: View {
     }
     
 }
-

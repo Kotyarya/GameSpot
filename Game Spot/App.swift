@@ -14,7 +14,11 @@ struct Game_SpotApp: App {
     private var appContent: some View {
 
         #if DEBUG
-        if let scenario = TeamActionUITestScenario.current {
+        if let scenario = ContentStateUITestScenario.current {
+
+            ContentStateUITestHarness(scenario: scenario)
+
+        } else if let scenario = TeamActionUITestScenario.current {
 
             TeamActionUITestHarness(scenario: scenario)
 

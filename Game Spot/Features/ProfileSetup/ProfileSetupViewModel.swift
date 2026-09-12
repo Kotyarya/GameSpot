@@ -27,6 +27,12 @@ final class ProfileSetupViewModel:
 
     @Published var errorMessage: String?
 
+    @Published private(set) var isLoadingSports = false
+
+    @Published private(set) var didAttemptSportsLoad = false
+
+    @Published private(set) var sportsErrorMessage: String?
+
     @Published var isUsernameAvailable:
         Bool? = nil
 
@@ -66,6 +72,20 @@ final class ProfileSetupViewModel:
 
     func loadSports() async {
 
+        guard !isLoadingSports else {
+            return
+        }
+
+        didAttemptSportsLoad = true
+
+        isLoadingSports = true
+
+        sportsErrorMessage = nil
+
+        defer {
+            isLoadingSports = false
+        }
+
         do {
 
             sports =
@@ -74,8 +94,17 @@ final class ProfileSetupViewModel:
 
         } catch {
 
-            errorMessage =
-                "Failed to load sports"
+            if error is CancellationError {
+                return
+            }
+
+            sportsErrorMessage =
+                "Couldn’t load sports. Check your connection and try again."
+
+            AppLogger.error(
+                "Profile setup sports load failed",
+                error: error
+            )
         }
     }
 

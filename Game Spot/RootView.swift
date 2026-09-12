@@ -85,6 +85,22 @@ struct RootView: View {
                     LoadingView()
                         .transition(.opacity)
 
+                case .loadError:
+
+                    ContentStateView(
+                        title: "Couldn’t Load Account",
+                        message: session.error
+                            ?? "Check your connection and try again.",
+                        systemImage: "wifi.exclamationmark",
+                        accessibilityIdentifier: "session.error",
+                        actionTitle: "Try Again"
+                    ) {
+                        Task {
+                            await session.loadProfile()
+                        }
+                    }
+                    .transition(.opacity)
+
                 case .onboarding:
 
                     OnBoardingView {

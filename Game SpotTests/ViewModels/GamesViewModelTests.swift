@@ -9,6 +9,7 @@ final class GamesViewModelTests: XCTestCase {
 
         XCTAssertTrue(viewModel.games.isEmpty)
         XCTAssertFalse(viewModel.isLoading)
+        XCTAssertNil(viewModel.errorMessage)
     }
 
     func testLoadUserGamesPublishesResultAndSubscribesOnce() async {
@@ -61,7 +62,33 @@ final class GamesViewModelTests: XCTestCase {
 
         XCTAssertTrue(viewModel.games.isEmpty)
         XCTAssertFalse(viewModel.isLoading)
+        XCTAssertEqual(
+            viewModel.errorMessage,
+            "Couldn’t load games. Check your connection and try again."
+        )
         XCTAssertEqual(realtime.subscribeCallCount, 0)
+    }
+
+    func testRetryClearsErrorAndPublishesGames() async {
+        let game = TestFixtures.game(
+            startsAt: Date().addingTimeInterval(3_600)
+        )
+        let service = SequencedGamesServiceStub(
+            results: [
+                .failure(TestError.expected),
+                .success([game])
+            ]
+        )
+        let viewModel = makeViewModel(service: service)
+
+        await viewModel.load(mode: .myGames)
+        XCTAssertNotNil(viewModel.errorMessage)
+
+        await viewModel.retry()
+
+        XCTAssertEqual(viewModel.games, [game])
+        XCTAssertNil(viewModel.errorMessage)
+        XCTAssertEqual(service.callCount, 2)
     }
 
     func testCancelledLoadAlwaysStopsLoading() async {
@@ -162,6 +189,34 @@ private final class SuspendedGamesServiceStub: GamesFetching {
         try await withCheckedThrowingContinuation {
             continuation = $0
         }
+    }
+}
+
+@MainActor
+private final class SequencedGamesServiceStub: GamesFetching {
+
+    private var results: [Result<[Game], Error>]
+    private(set) var callCount = 0
+
+    init(
+        results: [Result<[Game], Error>]
+    ) {
+        self.results = results
+    }
+
+    func fetchGamesByPark(
+        parkId: UUID
+    ) async throws -> [Game] {
+        try nextResult()
+    }
+
+    func fetchUserGames() async throws -> [Game] {
+        try nextResult()
+    }
+
+    private func nextResult() throws -> [Game] {
+        callCount += 1
+        return try results.removeFirst().get()
     }
 }
 

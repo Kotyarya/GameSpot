@@ -12,9 +12,27 @@ final class ParkDetailsViewModel: ObservableObject {
 
     @Published var hasRated = false
 
+    @Published private(set) var errorMessage: String?
+
+    @Published private(set) var ratingErrorMessage: String?
+
+    @Published private(set) var isSubmittingRating = false
+
     // MARK: - Services
 
-    private let service = ParkService.shared
+    private let service: any ParkDetailsServing
+
+    private var requestedParkId: UUID?
+
+    private var ratingMutationVersion = 0
+
+    // MARK: - Init
+
+    init(
+        service: any ParkDetailsServing = ParkService.shared
+    ) {
+        self.service = service
+    }
 
     // MARK: - Load
 
@@ -22,22 +40,55 @@ final class ParkDetailsViewModel: ObservableObject {
         parkId: UUID
     ) async {
 
-        details = nil
+        if isLoading,
+           requestedParkId == parkId {
+            return
+        }
+
+        if details?.park.id != parkId {
+            details = nil
+            hasRated = false
+            ratingErrorMessage = nil
+            ratingMutationVersion += 1
+        }
+
+        requestedParkId = parkId
 
         isLoading = true
 
+        errorMessage = nil
+
         defer {
-            isLoading = false
+            if requestedParkId == parkId {
+                isLoading = false
+            }
         }
 
         do {
 
-            details = try await service
+            let loadedDetails = try await service
                 .fetchParkDetails(
                     parkId: parkId
                 )
 
+            guard requestedParkId == parkId else {
+                return
+            }
+
+            details = loadedDetails
+
         } catch {
+
+            guard requestedParkId == parkId else {
+                return
+            }
+
+            if error is CancellationError {
+                return
+            }
+
+            errorMessage =
+                "Couldn’t load this park. Check your connection and try again."
 
             AppLogger.error(
                 "ParkDetailsViewModel load failed",
@@ -53,13 +104,22 @@ final class ParkDetailsViewModel: ObservableObject {
         parkId: UUID
     ) async {
 
+        let version = ratingMutationVersion
+
         do {
 
-            hasRated = try await service
+            let result = try await service
                 .hasUserRated(
                     userId: userId,
                     parkId: parkId
                 )
+
+            guard requestedParkId == parkId,
+                  ratingMutationVersion == version else {
+                return
+            }
+
+            hasRated = result
 
         } catch {
 
@@ -78,7 +138,21 @@ final class ParkDetailsViewModel: ObservableObject {
         quality: Int,
         facilities: Int,
         activity: Int
-    ) async {
+    ) async -> Bool {
+
+        guard !isSubmittingRating else {
+            return false
+        }
+
+        isSubmittingRating = true
+
+        ratingErrorMessage = nil
+
+        ratingMutationVersion += 1
+
+        defer {
+            isSubmittingRating = false
+        }
 
         do {
 
@@ -95,12 +169,21 @@ final class ParkDetailsViewModel: ObservableObject {
                 parkId: parkId
             )
 
+            hasRated = true
+
+            return true
+
         } catch {
+
+            ratingErrorMessage =
+                "Couldn’t submit your rating. Check your connection and try again."
 
             AppLogger.error(
                 "ParkDetailsViewModel submitRating failed",
                 error: error
             )
+
+            return false
         }
     }
 }

@@ -59,11 +59,33 @@ final class GameInfoViewModelTests: XCTestCase {
         XCTAssertNil(viewModel.details)
         XCTAssertEqual(
             viewModel.errorMessage,
-            GameInfoTestError.failed.localizedDescription
+            "Couldn’t load this game. Check your connection and try again."
         )
         XCTAssertEqual(weatherService.fetchCallCount, 0)
         XCTAssertTrue(realtime.receivedGameIds.isEmpty)
         XCTAssertFalse(viewModel.isLoading)
+    }
+
+    func testWeatherFailureKeepsGameDetailsAvailable() async {
+        let details = TestFixtures.gameDetails(
+            startsAt: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+        let service = GameInfoServiceStub(
+            detailsResult: .success(details)
+        )
+        let weatherService = WeatherServiceStub(
+            result: .failure(GameInfoTestError.failed)
+        )
+        let viewModel = makeViewModel(
+            gameService: service,
+            weatherService: weatherService
+        )
+
+        await viewModel.load(gameId: TestFixtures.gameId)
+
+        XCTAssertEqual(viewModel.details?.id, TestFixtures.gameId)
+        XCTAssertNil(viewModel.weather)
+        XCTAssertNil(viewModel.errorMessage)
     }
 
     func testCancelledLoadAlwaysStopsLoading() async {
@@ -142,7 +164,7 @@ final class GameInfoViewModelTests: XCTestCase {
         XCTAssertEqual(service.fetchCallCount, 0)
         XCTAssertEqual(
             viewModel.errorMessage,
-            GameInfoTestError.failed.localizedDescription
+            "Couldn’t join this game. Check your connection and try again."
         )
     }
 
@@ -212,7 +234,7 @@ final class GameInfoViewModelTests: XCTestCase {
         XCTAssertEqual(service.fetchCallCount, 0)
         XCTAssertEqual(
             viewModel.errorMessage,
-            GameInfoTestError.failed.localizedDescription
+            "Couldn’t leave this game. Check your connection and try again."
         )
     }
 

@@ -47,6 +47,35 @@ final class SessionManagerAppStateTests: XCTestCase {
         XCTAssertEqual(session.appState, .auth)
     }
 
+    func testProfileLoadFailureShowsRecoverableAccountState() async {
+        let user = User(
+            id: TestFixtures.userId,
+            appMetadata: [:],
+            userMetadata: [:],
+            aud: "authenticated",
+            email: "player@example.com",
+            createdAt: Date(),
+            updatedAt: Date()
+        )
+        let failedSession = SessionManager(
+            authService: SessionAuthServiceStub(
+                currentUser: user
+            ),
+            profileService: FailingProfileServiceStub(),
+            restoreSessionOnInit: false
+        )
+
+        await failedSession.restoreSession()
+
+        XCTAssertTrue(failedSession.didCheckSession)
+        XCTAssertEqual(failedSession.appState, .loadError)
+        XCTAssertEqual(
+            failedSession.error,
+            "Couldn’t load your account. Check your connection and try again."
+        )
+        XCTAssertNil(failedSession.profile)
+    }
+
     func testAppStateLoadingWhenProfileMissing() {
         session.didCheckSession = true
         session.user = nil
@@ -112,11 +141,46 @@ final class SessionManagerAppStateTests: XCTestCase {
 @MainActor
 private final class SessionAuthServiceStub: SessionAuthServing {
 
-    var currentUser: User? { nil }
+    let currentUser: User?
 
     private(set) var signOutCallCount = 0
 
+    init(
+        currentUser: User? = nil
+    ) {
+        self.currentUser = currentUser
+    }
+
     func signOut() async throws {
         signOutCallCount += 1
+    }
+}
+
+@MainActor
+private final class FailingProfileServiceStub: ProfileFetching {
+
+    func fetchProfile(
+        userId: UUID
+    ) async throws -> Profile {
+        throw SessionStateTestError.secretBackendFailure
+    }
+
+    func fetchUserStats(
+        userId: UUID
+    ) async throws -> [UserSportStats] {
+        []
+    }
+
+    func getRecentMatches() async throws -> [RecentMatch] {
+        []
+    }
+}
+
+private enum SessionStateTestError: LocalizedError {
+
+    case secretBackendFailure
+
+    var errorDescription: String? {
+        "secret backend failure"
     }
 }

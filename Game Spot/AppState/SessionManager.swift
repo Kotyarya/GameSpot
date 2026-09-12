@@ -5,6 +5,7 @@ import Combine
 enum AppState {
     case auth
     case loading
+    case loadError
     case onboarding
     case profileSetup
     case main
@@ -58,7 +59,7 @@ final class SessionManager: ObservableObject {
         // MARK: Error
 
         if error != nil {
-            return .auth
+            return .loadError
         }
 
         // MARK: Profile
@@ -172,13 +173,13 @@ final class SessionManager: ObservableObject {
 
         } catch {
 
-            print(
-                "❌ Failed to load profile:",
-                error
+            AppLogger.error(
+                "Session profile load failed",
+                error: error
             )
 
             self.error =
-                error.localizedDescription
+                "Couldn’t load your account. Check your connection and try again."
 
             self.profile = nil
         }

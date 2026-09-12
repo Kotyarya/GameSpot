@@ -10,6 +10,8 @@ final class GamesViewModel: ObservableObject {
     @Published var games: [Game] = []
     
     @Published var isLoading = false
+
+    @Published private(set) var errorMessage: String?
     
     // MARK: - Services
     
@@ -64,6 +66,8 @@ final class GamesViewModel: ObservableObject {
                 isLoading = true
             }
         }
+
+        errorMessage = nil
         
         do {
             
@@ -82,6 +86,10 @@ final class GamesViewModel: ObservableObject {
         } catch {
             
             if !(error is CancellationError) {
+
+                errorMessage =
+                    "Couldn’t load games. Check your connection and try again."
+
                 AppLogger.error(
                     "GamesViewModel load failed",
                     error: error
@@ -111,6 +119,15 @@ final class GamesViewModel: ObservableObject {
                 isLoading = false
             }
         }
+    }
+
+    func retry() async {
+
+        guard let currentMode else {
+            return
+        }
+
+        await load(mode: currentMode)
     }
     
     // MARK: - Reload

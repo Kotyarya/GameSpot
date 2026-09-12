@@ -57,7 +57,10 @@ final class CreateGameViewModelTests: XCTestCase {
 
         XCTAssertNil(result)
         XCTAssertFalse(viewModel.isLoading)
-        XCTAssertEqual(viewModel.errorMessage, TestError.failed.localizedDescription)
+        XCTAssertEqual(
+            viewModel.errorMessage,
+            "Couldn’t create the game. Check your connection and try again."
+        )
     }
 
     private func makeViewModel(
