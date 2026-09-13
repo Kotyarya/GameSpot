@@ -1,488 +1,151 @@
 # Game Spot
 
-A native iOS application that helps players discover sports venues, join or create matches, track competitive rankings, and participate in post-game MVP voting — all backed by a live Supabase backend.
+Game Spot — нативное iOS-приложение для поиска спортивных площадок, создания любительских матчей, выбора команды, отслеживания рейтинга и голосования за MVP. Проект готовится к App Store как portfolio application, а не как развиваемый startup.
 
----
+## Что умеет приложение
 
-## Overview
+- email/password registration, sign in и password recovery;
+- onboarding, foreground location permission и настройка профиля;
+- MapKit-карта активных площадок и подробности park;
+- создание игры, My Games, Join/Leave Team Alpha или Team Beta;
+- server-driven lifecycle матча и трёхминутное MVP voting;
+- global/per-sport statistics и league ranks Bronze → King;
+- Realtime updates игр, участников, голосов и профиля;
+- avatar add/replace/remove через Supabase Storage;
+- weather игры через Open-Meteo;
+- park rating;
+- Privacy Policy внутри приложения;
+- необратимое удаление аккаунта и связанных данных.
 
-**Game Spot** is a SwiftUI sports matchmaking application designed to help users organize amateur sports events, discover sports venues, and participate in local games through a modern mobile experience.
+Версия 1.0 намеренно не содержит Sign in with Apple, payments, ads, analytics, offline mode, push notifications и background location.
 
-The app connects amateur and recreational players with local games at sports parks, supports team-based match participation, and provides player statistics, league rankings, and real-time match updates.
+## Стек
 
----
+| Область | Технология |
+| --- | --- |
+| Client | Swift 6, SwiftUI, Swift Concurrency |
+| Platform | iOS 26+, MapKit, Core Location, PhotosUI |
+| Backend | Supabase Auth, Postgres, RPC, RLS, Realtime, Storage, Edge Functions |
+| Dependency | `supabase-swift` 2.44.1 (Swift Package Manager) |
+| Scheduling | `pg_cron` |
+| Weather | Open-Meteo REST API |
+| Tests | XCTest/XCUITest + SQL regression scripts |
 
-## Features
+## Архитектура
 
-The following capabilities are **implemented in the current codebase**:
-
-### Authentication & Onboarding
-
-- Email/password **sign in** and **sign up** via Supabase Auth (`AuthService`, `AuthView`).
-- Multi-step **onboarding** carousel with location permission request (`OnBoardingView`).
-- **Profile setup** flow: avatar upload (Supabase Storage), username availability check, favorite sport selection (`ProfileSetupView`).
-
-### User Profiles
-
-- Global and per-sport **ratings**, match count, MVP count, and performance points (`Profile`, `UserSportStats`).
-- **League-style rank** display (Bronze → King with divisions) via `RankHelper`.
-- **Recent matches** list with rating/points earned and MVP highlights (`RecentMatchCard`).
-- **Sign out** from the profile tab.
-
-### Sports & Matches
-
-- Supported sport types in the client: **football**, **basketball**, **volleyball** (`SportType`).
-- **Create game** at a selected park with sport and start time (`CreateGameView`).
-- **My Games** list grouped by date (`GamesView`).
-- **Park-specific game lists** navigable from the map sheet.
-- **Game details** screen with teams, player highlights, park info, and weather.
-- **Join / leave** games with **Team Alpha** and **Team Beta** assignment (`JoinGameSheetView`).
-- Live / open / full / finished **game state** on cards and detail views (`GameCard`, `GameInfoView`).
-- **Countdown timer** and live indicator for in-progress or upcoming games (`TimelineView`).
-
-### Maps & Geolocation
-
-- **MapKit** map with park markers and user location controls (`MapView`).
-- **Bottom sheet** park details with photos, sports, hours, ratings, and actions (`ParkInfoView`).
-- **Open in Maps** for directions to a park.
-- **Location permission** requested during onboarding (`LocationManager`); coordinates are not consumed elsewhere in the app yet.
-
-### MVP Voting
-
-- Post-match **MVP voting** when `mvpVotingOpen` is true (`GameInfoView`, `MVPVoteRow`).
-- Vote submission via Supabase RPC `vote_mvp`.
-- Display of **match MVP** after processing (`mvpPlayer`).
-
-Match state is controlled by the backend: players may join or leave only before
-`starts_at`; the game then becomes live for its configured duration. When it ends,
-participation rewards are granted once and a three-minute MVP window opens for match
-participants. The backend closes that window, selects the MVP, grants the MVP reward once,
-and marks the match processed.
-
-Authenticated users can initiate permanent account deletion from the Profile screen. A
-JWT-protected Edge Function removes the user's avatar, transactionally deletes or anonymizes
-related application data, deletes the Supabase Auth user, and only then lets the app clear its
-local session.
-
-GameSpot requests foreground-only location access to show the user's position on the map and
-help them find nearby sports parks. It does not request background location access.
-
-### Rankings & Leagues
-
-- Six leagues: Bronze, Silver, Gold, Diamond, Ruby, King (`RankLeague`).
-- Five divisions per league (I–V) based on rating thresholds (`RankHelper`).
-- Rank-colored UI assets under `Assets.xcassets/Ranks/`.
-
-### Parks
-
-- Fetch active parks and detailed park data (hours, images, sports, ratings).
-- **Rate a park** on quality, facilities, and activity (1–5 stars) via RPC `rate_park`.
-- Open/closed status derived from weekly hours in the UI.
-
-### Weather
-
-- Hourly **weather forecast** for game time via [Open-Meteo](https://open-meteo.com/) (`WeatherService`).
-- Temperature, wind speed, and precipitation probability on the game detail screen.
-
-### Real-Time Synchronization
-
-Supabase Realtime (`realtimeV2`) subscriptions update:
-
-| Screen | Tables |
-|--------|--------|
-| Games list | `games`, `game_members` |
-| Game details | `games`, `game_members`, `game_mvp_votes` |
-| Profile | `profiles`, `user_sport_stats` |
-
-### UI & Platform
-
-- **SwiftUI** with **glassEffect** styling (iOS 26 Liquid Glass APIs).
-- Custom loading screen, reusable `GameCard`, `SportGlassPin`, and rank-themed profile header.
-- Portrait orientation on iPhone; portrait (+ upside-down) on iPad.
-
----
-
-## Screenshots
-
-> Add screenshots to `docs/screenshots/` and replace the placeholders below.
-
-| Screen | Description |
-|--------|-------------|
-| ![Auth](docs/screenshots/auth.png) | Authentication — *placeholder* |
-| ![Map](docs/screenshots/map.png) | Park map & bottom sheet — *placeholder* |
-| ![Games](docs/screenshots/games.png) | My Games list — *placeholder* |
-| ![Game Detail](docs/screenshots/game-detail.png) | Game details, teams & countdown — *placeholder* |
-| ![Profile](docs/screenshots/profile.png) | Profile, ranks & stats — *placeholder* |
-| ![Onboarding](docs/screenshots/onboarding.png) | Onboarding flow — *placeholder* |
-
----
-
-## Architecture
-
-The project follows a **feature-oriented MVVM** structure with a shared service layer and global app state.
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                      SwiftUI Views                       │
-│   AuthView · MapView · GamesView · GameInfoView · …     │
-└─────────────────────────┬───────────────────────────────┘
-                          │ @StateObject / @ObservedObject
-┌─────────────────────────▼───────────────────────────────┐
-│                    ViewModels (@MainActor)                │
-│  AuthViewModel · GamesViewModel · GameInfoViewModel · …   │
-└─────────────────────────┬───────────────────────────────┘
-                          │ async/await
-┌─────────────────────────▼───────────────────────────────┐
-│              Services (singleton, Sendable)               │
-│  AuthService · GameService · ParkService · ProfileService │
-│  WeatherService · SportService · SupabaseService          │
-└─────────────────────────┬───────────────────────────────┘
-                          │
-┌─────────────────────────▼───────────────────────────────┐
-│           Supabase (Auth · Postgres · RPC · Storage ·     │
-│           Realtime)  +  Open-Meteo HTTP API               │
-└─────────────────────────────────────────────────────────┘
+```text
+SwiftUI Views
+      ↓
+@MainActor ViewModels
+      ↓
+Service protocols / Services / Realtime services
+      ↓
+Supabase Swift SDK или URLSession/CoreLocation
+      ↓
+Supabase Postgres/Auth/Storage/Edge Function + Open-Meteo
 ```
 
-### MVVM
+PostgreSQL является источником истины для ownership, capacity, match state, MVP и rewards. Client ViewModels отвечают за orchestration и понятное UI-state. Realtime event обычно инвалидирует данные и запускает повторный authoritative query.
 
-- **Views** render UI and forward user actions.
-- **ViewModels** (`@MainActor`, `ObservableObject`) hold `@Published` state and orchestrate async work.
-- **Models** are `Decodable` structs mapping to Supabase tables/RPC responses.
+Подробно: [архитектура](docs/ARCHITECTURE.md), [backend](docs/DATABASE.md), [функции](docs/FEATURES.md).
 
-### Services Layer
+## Быстрый запуск
 
-Each domain has a dedicated service class using `SupabaseService.shared.client`:
-
-| Service | Responsibility |
-|---------|----------------|
-| `AuthService` | Email/password sign up, sign in, and sign out |
-| `ProfileService` | Profiles, stats, recent matches, onboarding |
-| `GameService` | CRUD-style game operations via RPCs |
-| `ParkService` | Parks, hours, images, ratings |
-| `SportService` | Sports catalog |
-| `WeatherService` | Open-Meteo forecast lookup |
-
-### App State & Navigation
-
-- **`SessionManager`** — global auth/profile state machine (`AppState`: auth, loading, onboarding, profileSetup, main).
-- **`AppRouter`** — tab selection and per-tab `NavigationPath` for typed `Route` destinations.
-- Injected via `@EnvironmentObject` from `Game_SpotApp`.
-
-### Data Flow
-
-1. View triggers `.task` or button action.
-2. ViewModel calls a Service method with `async/await`.
-3. Service queries Supabase (table select, RPC, or storage upload).
-4. ViewModel updates `@Published` properties on the main actor.
-5. Realtime listeners trigger silent reloads where configured.
-
----
-
-## Technologies
-
-| Category | Technology | Version / Notes |
-|----------|------------|-----------------|
-| Language | Swift | 6.0 (app target) |
-| UI | SwiftUI | iOS 26 APIs (`glassEffect`, modern MapKit) |
-| Architecture | MVVM | Feature modules + service layer |
-| Backend | [Supabase](https://supabase.com/) | `supabase-swift` **2.44.1** |
-| Auth | Supabase Auth | Email/password |
-| Database | Supabase Postgres | Tables + RPC functions |
-| Realtime | Supabase Realtime V2 | Postgres change subscriptions |
-| Storage | Supabase Storage | `avatars` bucket |
-| Maps | MapKit | Markers, user location, directions |
-| Weather | Open-Meteo REST API | Hourly forecast |
-| Concurrency | Swift Concurrency | `async/await`, `@MainActor` |
-| Testing | XCTest | Unit + UI test targets |
-| IDE | Xcode | **26.4.1** (project setting) |
-| Min. deployment | iOS | **26.0** |
-
----
-
-## Project Structure
-
-```
-Game Spot/
-├── App.swift                    # @main entry, environment setup
-├── RootView.swift               # App-state router (auth → main)
-├── AppState/
-│   ├── SessionManager.swift     # Session & profile state machine
-│   └── AppRouter.swift          # Tab + NavigationPath routing
-├── Core/
-│   ├── Models/                  # Game, Profile, Park, Sport, Weather, …
-│   ├── Services/                # Supabase & weather API layer
-│   └── Managers/
-│       └── LocationManager.swift
-├── Features/
-│   ├── Auth/                    # Login & registration
-│   ├── OnBoarding/              # First-run carousel
-│   ├── ProfileSetup/            # Avatar, username, favorite sport
-│   ├── MainTabView/             # Map · My Games · Profile tabs
-│   ├── Map/                     # Map screen + park markers
-│   ├── ParkInfo/                # Park bottom sheet
-│   ├── Games/                   # Game lists
-│   ├── GameInfo/                # Game detail, MVP, weather
-│   ├── CreateGame/              # Game creation flow
-│   ├── JoinGame/                # Team join/leave sheet
-│   ├── Profile/                 # User profile & stats
-│   └── Progress/                # LoadingView
-├── UI/                          # Reusable components (GameCard, SportGlassPin)
-├── Helpers/                     # RankHelper, formatters
-└── Assets.xcassets/             # Colors, rank themes, onboarding images
-
-Game SpotTests/                  # Unit & ViewModel tests
-Game SpotUITests/                # UI automation tests
-```
-
----
-
-## Package Contents
-
-The repository contains all components required to build and run the application:
-
-- Complete iOS source code written in Swift and SwiftUI
-- ViewModels implementing the MVVM architecture
-- Service layer responsible for communication with Supabase
-- Database models and DTO structures
-- Application assets, icons, and onboarding resources
-- Unit and UI test suites
-- Xcode project configuration files
-
-The project represents the complete source code of the Game Spot application and is intended for educational and development purposes.
-
----
-
-## Database
-
-The backend is a **Supabase Postgres** project. Its application schema is versioned under
-`supabase/migrations/`; production user records and secrets are deliberately excluded.
-
-### Tables (referenced in code)
-
-| Table | Purpose |
-|-------|---------|
-| `profiles` | User profile, rating, stats flags, favorite sport |
-| `user_sport_stats` | Per-sport rating and match statistics |
-| `sports` | Sport catalog |
-| `parks` | Venue name, coordinates, address, lighting |
-| `parks_hour` | Weekly opening hours |
-| `parks_images` | Park photo URLs |
-| `parks_sports` | Sports available at each park |
-| `parks_ratings` | Aggregated park rating averages |
-| `games` | Match schedule and status fields |
-| `game_members` | Players assigned to teams |
-| `game_mvp_votes` | MVP vote records |
-
-### RPC Functions
-
-| RPC | Used by |
-|-----|---------|
-| `get_games_by_park` | `GameService.fetchGamesByPark` |
-| `get_user_games` | `GameService.fetchUserGames` |
-| `get_game_details` | `GameService.fetchGameDetails` |
-| `create_game` | `GameService.createGame` |
-| `join_game` | `GameService.joinGame` |
-| `leave_game` | `GameService.leaveGame` |
-| `vote_mvp` | `GameService.voteMVP` |
-| `get_recent_matches` | `ProfileService.getRecentMatches` |
-| `rate_park` | `ParkService.ratePark` |
-| `has_user_rated` | `ParkService.hasUserRated` |
-
-### Storage
-
-| Bucket | Path pattern | Purpose |
-|--------|--------------|---------|
-| `avatars` | `{userId}/avatar.jpg` | Profile avatar upload |
-
-### Recreating and testing the backend locally
-
-Prerequisites: a Docker-compatible runtime, the current Supabase CLI, and `psql`.
+Требуются Xcode 26.4+, iOS 26 Simulator и internet.
 
 ```bash
-# Start the local Supabase stack and apply every migration from a clean database.
-supabase start
-supabase db reset
-
-# Run every assertion-based database regression test against the local database.
-DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres
-for test_file in supabase/tests/database/*.sql; do
-  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$test_file"
-done
-
-# Stop the local stack when finished.
-supabase stop
-```
-
-The baseline migration recreates the public schema, functions, triggers, RLS policies,
-grants, the `avatars` Storage bucket and policies, Realtime publication membership, and
-scheduled cron jobs. Later backend fixes must be added as new migration files; do not edit
-an already-applied migration.
-
-To connect this working copy to the existing remote project for read-only inspection or a
-reviewed migration workflow, use `supabase link --project-ref <project-ref>`. Keep the
-database password, service-role key, access token, and `.env` files outside Git. Never run
-`db reset` against the hosted project.
-
-### Key Model Entities
-
-- **`Game`** — schedule, capacity, live/finished flags, joined player count.
-- **`GameDetails`** — full roster, park summary, MVP state, vote status.
-- **`Profile`** — username, avatar, global rating, onboarding flags.
-- **`Player`** — team assignment, rank badges, MVP vote counts.
-- **`Park` / `ParkDetails`** — location, hours, images, sports, ratings.
-- **`Team`** — `Team Alpha` / `Team Beta` (string-backed enum).
-
----
-
-## Installation
-
-### Prerequisites
-
-1. **macOS** with **Xcode 26.4+** installed.
-2. An **Apple Developer** team configured in Xcode (project uses automatic signing).
-3. A **Supabase project** with the tables, RPCs, RLS policies, and storage bucket matching the client expectations.
-4. Active **internet connection** (Supabase + Open-Meteo).
-
-### Steps
-
-```bash
-# 1. Clone the repository
-git clone <repository-url>
-cd "Game Spot"
-
-# 2. Open the Xcode project
+git clone https://github.com/Kotyarya/GameSpot.git
+cd GameSpot
+git switch codex/gamespot-appstore
 open "Game Spot.xcodeproj"
 ```
 
-3. Wait for Swift Package Manager to resolve **supabase-swift** (declared in the project).
-4. Configure Supabase credentials in `Game Spot/Core/Services/SupabaseService.swift`:
-   - `supabaseURL`
-   - `supabaseKey` (publishable/anon key)
-5. Select the **Game Spot** scheme and an **iOS 26** simulator or device.
-6. Build and run (`⌘R`).
+Выберите scheme `Game Spot` и iOS 26 Simulator. Swift Package Manager автоматически разрешит зависимости.
 
-### Running Tests
+Client configuration читается из `Game-Spot-Info.plist` по ключам `SupabaseURL` и `SupabasePublishableKey`. В iOS запрещено добавлять service-role key, database password или другой server secret.
+
+Полная инструкция нового Mac, Simulator/device, tests и локального Supabase: [SETUP.md](docs/SETUP.md).
+
+## Проверка
+
+Unit tests:
 
 ```bash
-# Unit tests
 xcodebuild test \
+  -project "Game Spot.xcodeproj" \
   -scheme "Game Spot" \
-  -destination "platform=iOS Simulator,name=iPhone 17 Pro" \
-  -only-testing:"Game SpotTests"
-
-# UI tests
-xcodebuild test \
-  -scheme "Game Spot" \
-  -destination "platform=iOS Simulator,name=iPhone 17 Pro" \
-  -only-testing:"Game SpotUITests"
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -only-testing:'Game SpotTests'
 ```
 
-Or use **Product → Test** (`⌘U`) in Xcode.
+Release Simulator build:
 
----
+```bash
+xcodebuild build \
+  -project "Game Spot.xcodeproj" \
+  -scheme "Game Spot" \
+  -configuration Release \
+  -destination 'generic/platform=iOS Simulator' \
+  CODE_SIGNING_ALLOWED=NO
+```
 
-## Requirements
+Backend clean reset:
 
-| Requirement | Detail |
-|-------------|--------|
-| **Operating system** | iOS **26.0+** |
-| **Devices** | iPhone and iPad (`TARGETED_DEVICE_FAMILY = 1,2`) |
-| **Xcode** | 26.4.1 (as recorded in project metadata) |
-| **Swift** | 6.0 (application target) |
-| **Internet** | Required for auth, data, realtime, weather |
-| **Supabase** | Project with matching schema, Auth, Storage, Realtime enabled |
-| **Simulator / device** | iOS 26 SDK |
-| **Orientation** | Portrait (iPhone); portrait on iPad |
+```bash
+supabase start
+supabase db reset --local --no-seed
+```
 
----
+Database regression scripts находятся в `supabase/tests/database/`. Hosted production нельзя сбрасывать.
 
-## Testing
+## Структура
 
-The project includes **XCTest** unit tests, ViewModel tests, and basic UI tests.
+```text
+Game Spot/
+├── App.swift, RootView.swift
+├── AppState/                 # session state machine и navigation
+├── Core/
+│   ├── Models/
+│   ├── Services/
+│   └── Managers/
+├── Features/                 # Auth, Map, Games, Profile и другие screens
+├── UI/                       # общие visual components
+└── Helpers/
 
-### Unit Tests (`Game SpotTests/Unit/`)
+Game SpotTests/               # unit и ViewModel tests
+Game SpotUITests/             # UI tests и reviewer journeys
+supabase/
+├── migrations/               # воспроизводимая schema + security/lifecycle fixes
+├── functions/delete-account/ # JWT-protected account deletion
+├── tests/database/           # SQL regression suite
+└── config.toml               # local Supabase configuration
+docs/                         # техническая и release документация
+```
 
-| File | Coverage |
-|------|----------|
-| `RankHelperTests` | League & division calculation |
-| `NumberFormatterHelperTests` | K/M/B rating formatting |
-| `FormatTimeTests` | Park hours time formatting |
-| `SportModelTests` | Sport type → SF Symbol mapping |
-| `GameModelDecodingTests` | JSON decoding, `GamesMode` equality |
-| `GameStateLogicTests` | Live state, card status, countdown, teams |
-| `AuthValidationTests` | `AuthViewModel.isValid`, sign-up password rules |
-| `ParkHoursLogicTests` | Park open/closed logic |
-| `SessionManagerAppStateTests` | `AppState` transitions |
+## Документация
 
-### ViewModel Tests (`Game SpotTests/ViewModels/`)
+- [Что изменилось после версии владельца](docs/CHANGES_SINCE_USER_VERSION.md)
+- [Архитектура](docs/ARCHITECTURE.md)
+- [Supabase database/backend](docs/DATABASE.md)
+- [Пользовательские сценарии](docs/FEATURES.md)
+- [Запуск и тестирование](docs/SETUP.md)
+- [Архитектурные решения](docs/DECISIONS.md)
+- [Текущее состояние и следующие шаги](docs/TODO.md)
+- [Privacy Policy source](docs/privacy-policy.md)
+- [App Store privacy checklist](docs/app-store-privacy.md)
 
-| File | Coverage |
-|------|----------|
-| `AuthViewModelTests` | Validation & initial state |
-| `GamesViewModelTests` | Loading lifecycle |
-| `GameInfoViewModelTests` | MVP vote guards, load state |
-| `ProfileViewModelTests` | Initial state, load behavior |
-| `CreateGameViewModelTests` | Sport validation before create |
+## Текущий release status
 
-### UI Tests (`Game SpotUITests/`)
+Основные security, lifecycle, account deletion, UI-state и test tasks завершены. До App Store остаются hosted password-recovery configuration/E2E, report/block flow, App Store Connect privacy metadata, screenshots, signing и TestFlight. Актуальная точка возврата — [TODO.md](docs/TODO.md); scope и progress отслеживаются в Notion epic TASK-56.
 
-| File | Coverage |
-|------|----------|
-| `Game_SpotUITests` | Launch smoke test |
-| `AuthFlowUITests` | Sign In UI, sign-up mode switch, email input |
-| `NavigationFlowUITests` | Tab bar navigation when authenticated |
-| `Game_SpotUITestsLaunchTests` | Launch performance metric |
+Public Privacy Policy: <https://kotyarya.github.io/GameSpot/>
 
-### Test Support
+Support: `gamespot.support@icloud.com`
 
-- `TestFixtures.swift` — JSON factory helpers for models.
-- `GameSpotLogic.swift` — mirrors view-embedded game logic for regression testing.
-- `AuthValidationLogic.swift` / `ParkHoursLogic.swift` — mirrors UI validation rules.
+## Git workflow
 
-> Some ViewModel tests call the live Supabase backend and require network access and valid credentials.
+Текущая рабочая ветка — `codex/gamespot-appstore`. Не commit в `main`, не push/merge и не изменять production Supabase без явного решения владельца. Backend changes оформлять только forward migrations; секреты и production user data не коммитить.
 
----
+## Автор
 
-## Known Limitations
-
-The current version of the application has several limitations:
-
-- The application requires an active internet connection.
-- The application does not support offline mode.
-- Some features depending on maps and geolocation may increase battery consumption.
-- Performance may vary depending on network quality and backend availability.
-- The current version has not yet been published in the App Store and remains in the testing phase.
-
----
-
-## Future Improvements
-
-Possible future development directions include:
-
-1. Optional Sign in with Apple authentication for a future version.
-2. Offline mode with local data caching.
-3. Push notifications for upcoming matches and MVP voting.
-4. Enhanced geolocation features and nearby venue recommendations.
-5. Expanded statistics and player performance analytics.
-6. Additional sports categories and event types.
-7. Improved accessibility support and interface customization.
-8. Further optimization of network communication and battery consumption.
-
----
-
-## Author
-
-Game Spot was developed as part of an engineering diploma project focused on modern mobile application development using SwiftUI, Supabase, PostgreSQL, and MapKit.
-
-The project demonstrates the design, implementation, and testing of a complete mobile system supporting the organization of amateur sports events.
-
----
-
-## Repository
-
-Source code repository:
-
-https://github.com/Kotyarya/GameSpot
-
-The repository contains the complete source code, project configuration files, assets, and test suites required to build and run the application.
+Game Spot создан Максимом Аксамитным как дипломный и portfolio iOS-проект. Последующая release-hardening работа задокументирована в [CHANGES_SINCE_USER_VERSION.md](docs/CHANGES_SINCE_USER_VERSION.md).
