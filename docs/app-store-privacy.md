@@ -73,10 +73,35 @@ analytics, or tracking purposes for the current build.
   `gamespot.support@icloud.com` in `docs/privacy-policy.md` and the app.
 - [x] Publish the completed policy at a stable public HTTPS URL:
   <https://kotyarya.github.io/GameSpot/>.
-- [ ] Put that URL in App Store Connect and verify it without authentication.
-- [ ] Confirm the same support contact in App Store Connect.
-- [ ] Generate and inspect Xcode's privacy report from the final archive.
-- [ ] Recheck disclosures after any SDK or feature change.
+- [x] Generate and inspect Xcode's privacy report from a Release archive.
+
+## Release archive privacy report
+
+Verified: September 14, 2026
+
+- An arm64 iOS Release archive was created for version `1.0` (`1`) without
+  distribution signing. Distribution signing is intentionally deferred until
+  Apple Developer membership is available.
+- Xcode Organizer generated
+  `GameSpot-PrivacyReport-2026-09-14.pdf`. The report is a blank one-page PDF,
+  meaning the archive contains no reportable privacy-manifest declarations.
+- The archive contains only Swift Crypto's `PrivacyInfo.xcprivacy`; it declares
+  no tracking, collected data, tracking domains, or required-reason API access.
+- Xcode did not identify a privacy-manifest warning during archive creation or
+  report generation. An app-owned manifest is therefore still unnecessary for
+  the current code and dependency set.
+
+## Submission-time handoff (TASK-10)
+
+These actions require Apple Developer membership and an App Store Connect app
+record, so they belong to TASK-10 and do not block completion of TASK-59:
+
+- [ ] Put <https://kotyarya.github.io/GameSpot/> in App Store Connect and verify
+  it without authentication.
+- [ ] Confirm `gamespot.support@icloud.com` in App Store Connect.
+- [ ] Enter the App Privacy answers from this document.
+- [ ] Regenerate and inspect the privacy report from the signed distribution
+  archive after any SDK or feature change.
 
 ## Authoritative references
 

@@ -42,15 +42,18 @@
 
 ### TASK-59 — App Store privacy metadata
 
-Статус: Тестирование.
+Статус: Готово.
 
-В App Store Connect указать:
+Подготовлено и проверено:
 
 - Privacy Policy: <https://kotyarya.github.io/GameSpot/>;
 - support: `gamespot.support@icloud.com`;
-- категории из [app-store-privacy.md](app-store-privacy.md).
+- категории из [app-store-privacy.md](app-store-privacy.md);
+- Privacy Report из Release archive: [GameSpot-PrivacyReport-2026-09-14.pdf](GameSpot-PrivacyReport-2026-09-14.pdf).
 
-Затем создать финальный archive и проверить Xcode privacy report.
+Внесение URL/contact/disclosures в App Store Connect и повторная проверка уже
+подписанного distribution archive перенесены в TASK-10, потому что требуют Apple
+Developer membership и App Store Connect app record.
 
 ### TASK-61 — reporting и blocking
 
@@ -137,7 +140,7 @@ TASK-3 всё ещё заблокирована старой причиной п
 1. Исправить nullable creator mismatch и добавить regression.
 2. Завершить TASK-60 через hosted Redirect URLs и recovery E2E.
 3. Реализовать минимальный TASK-61 report/block flow.
-4. Заполнить App Store Connect privacy/support, проверить archive privacy report (TASK-59).
+4. После Apple Developer membership внести готовые privacy/support данные в App Store Connect и повторно проверить signed archive (TASK-10).
 5. Подготовить screenshots/reviewer instructions (TASK-9).
 6. Купить/активировать Apple Developer membership только когда всё выше готово.
 7. Выполнить device Release + TestFlight (TASK-10).

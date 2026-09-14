@@ -142,8 +142,9 @@ Production: Edge Function `delete-account` v1 активна, `verify_jwt=true`.
 - подтверждено отсутствие advertising/analytics/tracking SDK;
 - выбран support contact `gamespot.support@icloud.com`;
 - Privacy Policy опубликована через изолированную ветку `gh-pages` по адресу <https://kotyarya.github.io/GameSpot/>; публикационный commit `5d673a6` не является частью текущей feature-ветки.
+- из Release archive через Xcode Organizer сгенерирован и проверен `docs/GameSpot-PrivacyReport-2026-09-14.pdf`; отчёт пустой, а единственный manifest Swift Crypto не объявляет tracking, collected data или required-reason APIs.
 
-Commits в рабочей ветке: `d452702`, `e7eb07d`, `ebaec28`, `dababa8`. Осталось: внести URL/contact в App Store Connect и проверить privacy report финального archive. Статус: Тестирование.
+Commits в рабочей ветке: `d452702`, `e7eb07d`, `ebaec28`, `dababa8`. Внесение готовых URL/contact/disclosures в App Store Connect и повтор отчёта из подписанного distribution archive выполняются в TASK-10 после Apple Developer membership. Статус: Готово.
 
 ### TASK-8 — детерминированные unit/UI tests
 
