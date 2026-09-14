@@ -36,6 +36,7 @@ enum TestFixtures {
 
     static func game(
         id: UUID = gameId,
+        creatorId: UUID? = userId,
         startsAt: Date,
         durationMinutes: Int = 60,
         maxPlayers: Int = 10,
@@ -43,11 +44,15 @@ enum TestFixtures {
         isFinished: Bool = false,
         isInProgress: Bool = false
     ) -> Game {
-        decode(Game.self, from: """
+        let creatorJSON = creatorId
+            .map { "\"\($0.uuidString)\"" }
+            ?? "null"
+
+        return decode(Game.self, from: """
         {
             "id": "\(id.uuidString)",
             "park_id": "\(parkId.uuidString)",
-            "creator_id": "\(userId.uuidString)",
+            "creator_id": \(creatorJSON),
             "sport": {
                 "id": "\(sportFootballId.uuidString)",
                 "name": "football"

@@ -7,7 +7,7 @@ struct Game: Decodable, Identifiable, Equatable {
     let id: UUID
     
     let parkId: UUID
-    let creatorId: UUID
+    let creatorId: UUID?
     
     let sport: Sport
     

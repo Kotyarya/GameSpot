@@ -150,7 +150,7 @@
 
 **Reason.** Баланс удаления персональной связи и целостности shared data.
 
-**Consequences.** Game остаётся без creator. UI/backend должны терпеть nullable creator; текущий list model декодирует `creatorId` как non-optional, но list RPC исторически может вернуть NULL — это известный риск для игр удалённого creator и требует проверки перед масштабированием.
+**Consequences.** Game остаётся без creator. `games.creator_id`, контракты list RPC и Swift `Game.creatorId` допускают `NULL`/`nil`. Park Details, My Games, Game Details и Recent Matches продолжают показывать сохранённую игру оставшимся участникам.
 
 ## ADR-016 — email/password только для версии 1.0
 

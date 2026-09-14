@@ -153,6 +153,84 @@ select public.delete_user_data(
 
 reset role;
 
+-- Make the preserved game visible in Recent Matches.
+update public.games
+set
+  starts_at = now() - interval '1 hour',
+  is_finished = true
+where id = '41000000-0000-4000-8000-000000000001';
+
+-- Read the preserved game as the surviving participant.
+set local role authenticated;
+
+select set_config(
+  'request.jwt.claim.sub',
+  '31000000-0000-4000-8000-000000000002',
+  true
+);
+
+do $$
+declare
+  result_count integer;
+begin
+  -- Park Details must return the game with a nullable creator.
+  select count(*)
+  into result_count
+  from public.get_games_by_park(
+    '21000000-0000-4000-8000-000000000001'
+  )
+  where id = '41000000-0000-4000-8000-000000000001'
+    and creator_id is null
+    and joined_players = 1;
+
+  if result_count <> 1 then
+    raise exception
+      'get_games_by_park did not return the preserved creatorless game';
+  end if;
+
+  -- My Games must return it to the remaining participant.
+  select count(*)
+  into result_count
+  from public.get_user_games()
+  where id = '41000000-0000-4000-8000-000000000001'
+    and creator_id is null
+    and joined_players = 1;
+
+  if result_count <> 1 then
+    raise exception
+      'get_user_games did not return the preserved creatorless game';
+  end if;
+
+  -- Game Details must still open.
+  select count(*)
+  into result_count
+  from public.get_game_details(
+    '41000000-0000-4000-8000-000000000001'
+  )
+  where id = '41000000-0000-4000-8000-000000000001'
+    and is_joined = true
+    and joined_players = 1;
+
+  if result_count <> 1 then
+    raise exception
+      'get_game_details did not return the preserved game';
+  end if;
+
+  -- The finished game must remain in Recent Matches.
+  select count(*)
+  into result_count
+  from public.get_recent_matches()
+  where id = '41000000-0000-4000-8000-000000000001';
+
+  if result_count <> 1 then
+    raise exception
+      'get_recent_matches did not return the preserved game';
+  end if;
+end;
+$$;
+
+reset role;
+
 do $$
 begin
   if exists (

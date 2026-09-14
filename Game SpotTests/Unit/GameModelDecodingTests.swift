@@ -53,4 +53,13 @@ final class GameModelDecodingTests: XCTestCase {
         )
         XCTAssertNotEqual(GamesMode.myGames, GamesMode.park(id: parkA))
     }
+
+    func testGameDecodesWithoutCreatorAfterAccountDeletion() {
+        let game = TestFixtures.game(
+            creatorId: nil,
+            startsAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+
+        XCTAssertNil(game.creatorId)
+    }
 }
