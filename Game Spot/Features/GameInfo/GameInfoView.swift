@@ -11,6 +11,7 @@ struct GameInfoView: View {
     @State private var showJoinSheet = false
     @EnvironmentObject var session: SessionManager
     @State private var livePulse = false
+    @State private var blockedPlayerIds: Set<UUID> = []
     
     let gameId: UUID
     
@@ -207,16 +208,22 @@ struct GameInfoView: View {
         )
     }
     
-    private var teamAlpha: [Player] {
+    private var visiblePlayers: [Player] {
         details?.players.filter {
-            $0.team == .alpha
+            !blockedPlayerIds.contains($0.id)
         } ?? []
     }
 
+    private var teamAlpha: [Player] {
+        visiblePlayers.filter {
+            $0.team == .alpha
+        }
+    }
+
     private var teamBeta: [Player] {
-        details?.players.filter {
+        visiblePlayers.filter {
             $0.team == .beta
-        } ?? []
+        }
     }
     
     @ViewBuilder
@@ -257,15 +264,56 @@ struct GameInfoView: View {
     }
     
     private var topRatedPlayer: Player? {
-        details?.players.first(where: { $0.isTopRated })
+        visiblePlayers.first(where: { $0.isTopRated })
     }
 
     private var mostActivePlayer: Player? {
-        details?.players.first(where: { $0.isMostActive })
+        visiblePlayers.first(where: { $0.isMostActive })
     }
 
     private var newestPlayer: Player? {
-        details?.players.first(where: { $0.isNewest })
+        visiblePlayers.first(where: { $0.isNewest })
+    }
+
+    private func playerListRow(
+        _ player: Player
+    ) -> some View {
+
+        HStack(spacing: 14) {
+
+            avatarView(player)
+
+            VStack(alignment: .leading, spacing: 3) {
+
+                Text(player.username)
+                    .font(.headline)
+
+                Text("\(player.rating) rating")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            if player.id == session.user?.id {
+                Text("You")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            } else {
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity)
+        .glassEffect(
+            .regular.tint(Color("inversePrimary")),
+            in: RoundedRectangle(
+                cornerRadius: 20,
+                style: .continuous
+            )
+        )
     }
     
     private func highlightPlayer(
@@ -591,7 +639,7 @@ struct GameInfoView: View {
 
                                     VStack(spacing: 10) {
 
-                                        ForEach(details.players) { player in
+                                        ForEach(visiblePlayers) { player in
 
                                             MVPVoteRow(
                                                 player: player,
@@ -642,7 +690,8 @@ struct GameInfoView: View {
                             //MARK: MVP Player
                             
                             if details.isProcessed,
-                               let mvp = details.mvpPlayer {
+                               let mvp = details.mvpPlayer,
+                               !blockedPlayerIds.contains(mvp.id) {
 
                                 VStack(alignment: .leading, spacing: 16) {
 
@@ -730,6 +779,52 @@ struct GameInfoView: View {
                                             style: .continuous
                                         )
                                     )
+                                }
+                            }
+
+                            // MARK: Players
+
+                            if !visiblePlayers.isEmpty {
+
+                                VStack(alignment: .leading, spacing: 12) {
+
+                                    Text("Players")
+                                        .font(.largeTitle)
+                                        .bold()
+
+                                    ForEach(visiblePlayers) { player in
+
+                                        if player.id == session.user?.id {
+
+                                            playerListRow(player)
+
+                                        } else {
+
+                                            NavigationLink {
+                                                PublicProfileView(
+                                                    profile: PublicProfileSummary(
+                                                        player: player
+                                                    )
+                                                ) {
+                                                    blockedPlayerIds.insert(
+                                                        player.id
+                                                    )
+
+                                                    Task {
+                                                        await vm.refreshDetails(
+                                                            gameId: gameId
+                                                        )
+                                                    }
+                                                }
+                                            } label: {
+                                                playerListRow(player)
+                                            }
+                                            .buttonStyle(.plain)
+                                            .accessibilityIdentifier(
+                                                "gameDetails.player.\(player.id.uuidString)"
+                                            )
+                                        }
+                                    }
                                 }
                             }
                             

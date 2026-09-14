@@ -127,14 +127,15 @@ final class ProfileService: @unchecked Sendable {
         _ username: String
     ) async throws -> Bool {
 
-        let users: [IdOnly] = try await client
-            .from("profiles")
-            .select("id")
-            .eq("username", value: username)
+        return try await client
+            .rpc(
+                "is_username_available",
+                params: UsernameAvailabilityParams(
+                    p_username: username
+                )
+            )
             .execute()
             .value
-
-        return users.isEmpty
     }
 
     // MARK: - Onboarding
@@ -200,9 +201,9 @@ extension ProfileService: ProfileAvatarUpdating {}
 
 private extension ProfileService {
 
-    struct IdOnly: Decodable {
+    struct UsernameAvailabilityParams: Encodable {
 
-        let id: UUID
+        let p_username: String
     }
 
     struct CompleteProfilePayload: Encodable {

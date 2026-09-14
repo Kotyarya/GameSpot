@@ -388,7 +388,7 @@ struct ProfileSetupView: View {
                 Text(
                     available
                     ? "Username available"
-                    : "Username already taken"
+                    : "Username unavailable"
                 )
                 .font(.subheadline)
                 .foregroundStyle(

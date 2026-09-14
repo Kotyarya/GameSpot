@@ -134,6 +134,21 @@ UI timer только отображает время; даже изменённ
 
 Голосовать может только participant завершённой game во время открытого window. Нельзя голосовать за себя, неучастника или повторно. За сам vote текущий пользователь получает 2 global performance points; MVP получает global и per-sport bonus, зависящий от количества votes. Итог сохраняется также в `game_members` для recent match history.
 
+## Жалобы и блокировка пользователей
+
+Game Info показывает список игроков. Выбор другого игрока открывает публичный
+профиль с рейтингом, количеством игр, Report User и Block User.
+
+Report позволяет выбрать причину и добавить до 500 символов контекста. Повторная
+жалоба на того же пользователя с той же причиной не создаёт duplicate и не
+раскрывает внутреннее состояние модерации. Block требует подтверждения, после
+успеха сразу скрывает игрока из roster, teams, highlights, MVP voting и MVP card.
+
+Profile → Blocked Users показывает приватный список и позволяет выполнить
+Unblock. Username проверяется сервером на длину, допустимые символы, reserved
+names и минимальный offensive-word deny-list. Ручной процесс владельца описан в
+[MODERATION.md](MODERATION.md).
+
 ## Profile и Statistics
 
 Profile параллельно загружает:
@@ -180,7 +195,6 @@ Edge Function проверяет JWT, удаляет avatar, application data и
 - payments/ads/analytics;
 - background location;
 - полноценный park text search;
-- social reporting/blocking flow;
 - admin UI для parks/sports.
 
 Отсутствие функции не считается багом, если она не обещана в App Store metadata.

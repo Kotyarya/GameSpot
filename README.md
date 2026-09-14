@@ -14,6 +14,8 @@ Game Spot — нативное iOS-приложение для поиска сп
 - avatar add/replace/remove через Supabase Storage;
 - weather игры через Open-Meteo;
 - park rating;
+- public player profiles with user reporting and blocking;
+- blocked-user management and a documented manual moderation process;
 - Privacy Policy внутри приложения;
 - необратимое удаление аккаунта и связанных данных.
 
@@ -132,11 +134,12 @@ docs/                         # техническая и release докумен
 - [Архитектурные решения](docs/DECISIONS.md)
 - [Текущее состояние и следующие шаги](docs/TODO.md)
 - [Privacy Policy source](docs/privacy-policy.md)
+- [Moderation runbook](docs/MODERATION.md)
 - [App Store privacy checklist](docs/app-store-privacy.md)
 
 ## Текущий release status
 
-Основные security, lifecycle, account deletion, UI-state и test tasks завершены. До App Store остаются hosted password-recovery configuration/E2E, report/block flow, App Store Connect privacy metadata, screenshots, signing и TestFlight. Актуальная точка возврата — [TODO.md](docs/TODO.md); scope и progress отслеживаются в Notion epic TASK-56.
+Основные security, lifecycle, account deletion, UI-state и test tasks завершены. Report/block flow готов локально и ожидает отдельного разрешения на production migration и ручной E2E. До App Store также остаются hosted password-recovery E2E, App Store Connect privacy metadata, screenshots, signing и TestFlight. Актуальная точка возврата — [TODO.md](docs/TODO.md); scope и progress отслеживаются в Notion epic TASK-56.
 
 Public Privacy Policy: <https://kotyarya.github.io/GameSpot/>
 

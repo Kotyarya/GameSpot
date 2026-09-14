@@ -205,6 +205,35 @@ final class GameInfoViewModel: ObservableObject {
             )
         }
     }
+
+    // MARK: - Manual Refresh
+
+    func refreshDetails(
+        gameId: UUID
+    ) async {
+
+        do {
+
+            let updatedDetails =
+                try await gameService
+                    .fetchGameDetails(
+                        gameId: gameId
+                    )
+
+            withAnimation(.spring) {
+                details = updatedDetails
+            }
+
+        } catch {
+
+            if !(error is CancellationError) {
+                AppLogger.error(
+                    "Game details refresh failed",
+                    error: error
+                )
+            }
+        }
+    }
     
     // MARK: - Join Game
     

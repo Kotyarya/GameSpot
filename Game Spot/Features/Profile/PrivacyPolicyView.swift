@@ -9,7 +9,7 @@ struct PrivacyPolicyView: View {
 
                 policySection(
                     title: "Information We Collect",
-                    text: "GameSpot stores the email address and user ID needed for your account. If you complete your profile, it also stores your username, avatar, favorite sport, ratings, match history, team membership, MVP votes, and park reviews. Supabase may retain technical request logs such as IP address, IP-derived country, user-agent, timestamp, route, and response status for service operation and security."
+                    text: "GameSpot stores the email address and user ID needed for your account. If you complete your profile, it also stores your username, avatar, favorite sport, ratings, match history, team membership, MVP votes, and park reviews. When you use safety features, GameSpot stores reports you submit, optional report details, a snapshot of the reported profile, and your private blocked users list. Supabase may retain technical request logs such as IP address, IP-derived country, user-agent, timestamp, route, and response status for service operation and security."
                 )
 
                 policySection(
@@ -19,7 +19,7 @@ struct PrivacyPolicyView: View {
 
                 policySection(
                     title: "How We Use Information",
-                    text: "We use account, profile, and gameplay information only to provide authentication, profiles, games, teams, rankings, MVP voting, park ratings, and account support. GameSpot does not use this information for advertising or cross-app tracking."
+                    text: "We use account, profile, gameplay, and safety information only to provide authentication, profiles, games, teams, rankings, MVP voting, park ratings, account support, report review, abuse prevention, and blocking preferences. GameSpot does not use this information for advertising or cross-app tracking."
                 )
 
                 policySection(
@@ -29,7 +29,7 @@ struct PrivacyPolicyView: View {
 
                 policySection(
                     title: "Retention and Deletion",
-                    text: "We retain account and app data while your account is active. You can request deletion directly in Profile by choosing Delete Account. When deletion completes, your authentication account, profile, avatar, participation records, MVP votes, and reviews are deleted or anonymized where a game record must remain consistent. Service-provider backups and security logs may remain temporarily under the provider’s retention schedule."
+                    text: "We retain account and app data while your account is active. You can request deletion directly in Profile by choosing Delete Account. When deletion completes, your authentication account, profile, avatar, participation records, MVP votes, reports, blocking records, and reviews are deleted or anonymized where a game record must remain consistent. Limited moderation records may be retained when reasonably necessary for security, abuse prevention, or legal compliance. Service-provider backups and security logs may remain temporarily under the provider’s retention schedule."
                 )
 
                 policySection(
@@ -60,7 +60,7 @@ struct PrivacyPolicyView: View {
                 .font(.largeTitle)
                 .bold()
 
-            Text("Last updated: September 12, 2026")
+            Text("Last updated: September 14, 2026")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 

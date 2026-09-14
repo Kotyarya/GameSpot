@@ -1,6 +1,6 @@
 # Состояние GameSpot и точка возврата
 
-Снимок: 13 сентября 2026 года, ветка `codex/gamespot-appstore`. Notion epic: [TASK-56](https://app.notion.com/p/3bdb461e2b138108a5c7c2a943fc5b29).
+Снимок: 14 сентября 2026 года, ветка `codex/gamespot-appstore`. Notion epic: [TASK-56](https://app.notion.com/p/3bdb461e2b138108a5c7c2a943fc5b29).
 
 Цель текущего этапа — App Store portfolio release, не развитие стартапа.
 
@@ -22,10 +22,11 @@
 - optional weather через Open-Meteo;
 - in-app Privacy Policy и публичная HTTPS policy;
 - in-app account deletion через JWT Edge Function;
+- local user reporting/blocking flow, username moderation и owner runbook;
 - loading/error/empty/retry states на основном reviewer journey;
-- versioned Supabase schema и шесть SQL regression suites.
+- versioned Supabase schema и семь SQL regression suites.
 
-Последние сохранённые evidence: 140/140 unit tests для TASK-5, authenticated Privacy UI path PASS, Release Simulator build PASS, production SQL regressions 6/6, account deletion production E2E PASS.
+Последние сохранённые evidence: 147/147 unit tests, authenticated Privacy UI path PASS, Release Simulator build PASS, TASK-78 local SQL regression PASS, local Security Advisor без замечаний, production SQL regressions 6/6, account deletion production E2E PASS.
 
 ## Current release gates
 
@@ -55,9 +56,13 @@
 подписанного distribution archive перенесены в TASK-10, потому что требуют Apple
 Developer membership и App Store Connect app record.
 
-### TASK-61 — reporting и blocking
+### TASK-78 — reporting и blocking
 
-Статус: Backlog, высокий приоритет. Epic TASK-56 считает минимальные жалобы/блокировку обязательными. Функции сейчас нет в client/backend. До App Review нужно либо реализовать минимальный честный flow, либо пересмотреть обязательный scope с учётом конкретных App Review требований; не заявлять несуществующую модерацию.
+Статус: локальная реализация и автоматизированная проверка завершены. Добавлены
+report/block RPC, RLS, username policy, публичный профиль, скрытие заблокированных
+игроков, Unblock и manual moderation runbook. До статуса «Готово» нужны отдельное
+разрешение на применение migration к production Supabase и ручной E2E с двумя
+production test accounts.
 
 ### TASK-9 — portfolio/App Store материалы
 
@@ -112,7 +117,6 @@ TASK-3 всё ещё заблокирована старой причиной п
 
 ## Not implemented
 
-- report/block users (TASK-61);
 - Sign in with Apple;
 - push notifications;
 - offline mode;

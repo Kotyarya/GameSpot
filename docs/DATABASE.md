@@ -39,6 +39,10 @@ erDiagram
     GAMES ||--o{ GAME_MVP_VOTES : receives
     PROFILES ||--o{ GAME_MVP_VOTES : voter
     PROFILES ||--o{ GAME_MVP_VOTES : voted_player
+    PROFILES ||--o{ USER_REPORTS : reporter
+    PROFILES ||--o{ USER_REPORTS : reported_user
+    PROFILES ||--o{ USER_BLOCKS : blocker
+    PROFILES ||--o{ USER_BLOCKS : blocked_user
 ```
 
 ## Таблицы
@@ -54,6 +58,20 @@ erDiagram
 ### `user_sport_stats`
 
 Per-sport статистика пользователя: `rating`, `games_played`, `mvp_count`, `perf_points`. PK `id`; FK `user_id -> profiles.id`, `sport_id -> sports.id`. Записи для всех sports создаются trigger при создании profile. Прямых client writes нет.
+
+### `user_reports`
+
+Приватные жалобы пользователей. Хранит reporter/target, reason, optional details,
+status и snapshot username/avatar на момент жалобы. Unique
+`(reporter_id, reported_user_id, reason)` делает повторную отправку одного типа
+идемпотентной. Клиент читает только собственные отправленные жалобы и не может
+напрямую создавать, изменять или удалять строки.
+
+### `user_blocks`
+
+Приватный список блокировок с PK `(blocker_id, blocked_id)` и snapshot
+username/avatar для экрана управления. Клиент читает только свои блокировки;
+изменения выполняются через проверенный RPC.
 
 ### `sports`
 
@@ -115,6 +133,9 @@ PK UUID; FK park/sport и nullable `creator_id -> profiles`. Nullable creator п
 | `vote_mvp(game,user)` | проверяет voting window, membership, target, self-vote и duplicate |
 | `rate_park(user,park,...)` | требует `auth.uid() = user`, валидирует 1–5, upsert review и пересчитывает aggregate |
 | `has_user_rated(user,park)` | возвращает наличие review; используется для формы rating |
+| `submit_user_report(user,reason,details)` | проверяет auth/target/reason, безопасно игнорирует duplicate и создаёт pending report |
+| `set_user_block(user,is_blocked)` | проверяет auth/self-block и идемпотентно создаёт или удаляет private block |
+| `is_username_available(username)` | проверяет format/reserved/offensive policy и unique username без раскрытия `profiles` |
 
 Это `SECURITY DEFINER` API-поверхность. Execute есть у `authenticated`, а внутри mutating functions проверяется identity/state. Поэтому соответствующие Advisor WARN являются ожидаемыми, но каждое изменение function body требует повторного security review.
 
@@ -180,6 +201,8 @@ Tie-break при равных голосах — UUID игрока, а не rand
 - `authenticated`: catalog + game/profile/stat reads, необходимые UI и Realtime.
 - прямой INSERT/UPDATE/DELETE server-owned game/rating/stat tables у client roles отозван;
 - `profiles` UPDATE ограничен own row и безопасными columns;
+- blocked profiles скрываются из profile-backed social reads текущего пользователя;
+- `user_reports` и `user_blocks` доступны только owner rows; direct client mutations отозваны;
 - `park_reviews` намеренно имеет RLS без direct policy, потому что запись только через `rate_park`;
 - client-facing state mutations выполняются через проверенные RPC.
 
@@ -235,8 +258,9 @@ Shared games сохраняются с `creator_id = NULL`; связанные r
 7. `20260815170136_harden_avatar_storage.sql` — bucket и policies.
 8. `20260815191000_harden_function_search_paths.sql` — полный search-path pass.
 9. `20260912084515_restrict_rls_auto_enable.sql` — hosted helper privileges.
+10. `20260914145729_add_user_safety.sql` — reports, blocks, username policy и profile visibility.
 
-Remote migration versions имеют дату фактического production применения 12 сентября, но имена и порядок соответствуют этим девяти этапам. Existing production baseline был зарегистрирован без повторного CREATE; дальнейшие environments создаются полным локальным набором.
+Первые девять remote migration versions имеют дату фактического production применения 12 сентября. TASK-78 migration пока проверена только локально и требует отдельного production approval. Existing production baseline был зарегистрирован без повторного CREATE; дальнейшие environments создаются полным локальным набором.
 
 Новые изменения всегда добавлять новой migration. Не редактировать уже применённые файлы и никогда не выполнять hosted `db reset`.
 
@@ -255,7 +279,7 @@ supabase db diff --local --schema public,storage
 supabase stop
 ```
 
-Набор tests: RPC privileges, table/RLS privileges, lifecycle, account deletion, avatar Storage, function security. Подробная установка — [SETUP.md](SETUP.md).
+Набор tests: RPC privileges, table/RLS privileges, lifecycle, account deletion, avatar Storage, function security и user safety. Подробная установка — [SETUP.md](SETUP.md).
 
 ## Текущие Advisor notices
 

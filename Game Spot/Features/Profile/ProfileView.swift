@@ -387,6 +387,8 @@ struct ProfileView: View {
 
             avatarManagementSection
 
+            blockedUsersSection
+
             privacySection
 
             signOutSection
@@ -830,7 +832,31 @@ struct ProfileView: View {
         }
     }
 
-    // MARK: - Privacy
+    // MARK: - Blocked Users
+
+    private var blockedUsersSection: some View {
+        NavigationLink {
+            BlockedUsersView()
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "person.crop.circle.badge.xmark")
+
+                Text("Blocked Users")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+        }
+        .buttonStyle(.glass)
+        .accessibilityIdentifier("profile.blockedUsers")
+    }
 
     private var privacySection: some View {
         NavigationLink {

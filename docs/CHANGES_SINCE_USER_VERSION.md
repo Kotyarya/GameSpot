@@ -254,6 +254,30 @@ Commit: `44e09a0`. Статус: Тестирование.
 
 Проверка: 140/140 unit, 2/2 UI, Release build. Commit: `b3554c9`. Статус: Готово.
 
+### TASK-78 — жалобы и блокировка пользователей
+
+До изменения в GameSpot не было публичного профиля другого игрока, report/block
+flow, server-side username moderation или процедуры обработки жалоб.
+
+Сделано локально:
+
+- добавлены `user_reports` и `user_blocks` с RLS, least-privilege grants и
+  owner-only reads;
+- report/block выполняются только через authenticated RPC с identity/self-target
+  проверками и идемпотентной обработкой повторов;
+- username policy блокирует reserved names, недопустимый формат и минимальный
+  offensive-word deny-list, включая case/underscore obfuscation;
+- Game Info получил список игроков и публичный профиль с Report/Block;
+- заблокированный игрок скрывается из roster, teams, highlights, MVP voting и MVP;
+- Profile получил экран Blocked Users с Unblock;
+- Privacy Policy дополнена safety data, создан `docs/MODERATION.md`;
+- добавлены 7 ViewModel tests и SQL regression suite.
+
+Проверка: clean local migration replay PASS, SQL regression PASS, local Supabase
+Security Advisor без замечаний, 147/147 unit tests PASS, Release Simulator build
+PASS. Production migration и реальный E2E ещё не выполнялись. Статус: готово к
+Code Review/QA.
+
 ## Production Supabase: фактический результат
 
 На дату снимка production `GameSpot` активен в `eu-north-1`, Postgres 17.6.1. В нём:

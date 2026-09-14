@@ -4,7 +4,7 @@ title: GameSpot Privacy Policy
 
 # GameSpot Privacy Policy
 
-Last updated: September 12, 2026
+Last updated: September 14, 2026
 
 This Privacy Policy explains how GameSpot ("GameSpot", "we", "us") handles
 information when you use the GameSpot iOS application.
@@ -19,6 +19,9 @@ GameSpot handles the following information to operate the app:
 - Gameplay content: games created or joined, team assignment, match results,
   match history, MVP votes, and sport statistics.
 - Other user content: numeric park ratings and written park reviews.
+- Safety information: reports you submit, the selected report reason, optional
+  report details, a snapshot of the reported profile, and your private blocked
+  users list.
 - Technical service data: Supabase may retain request logs containing IP
   address, IP-derived country, user-agent, timestamp, route, response status,
   and related service metadata for operation and security.
@@ -49,8 +52,10 @@ We use information only to:
 - provide your profile and avatar;
 - organize games, teams, rankings, MVP voting, and park reviews;
 - maintain match history and performance statistics;
-- provide account deletion and support; and
-- prevent abuse and maintain service security.
+- provide account deletion and support;
+- prevent abuse and maintain service security; and
+- review user reports, enforce community safety, and apply your blocking
+  preferences.
 
 GameSpot does not use personal information for third-party advertising or
 cross-app tracking, and does not sell personal information.
@@ -74,6 +79,10 @@ game participation, MVP votes, and reviews are deleted. Games created by the
 account may remain with the creator reference removed so other players' match
 history stays consistent. A numeric park rating may be anonymized where it is
 needed to preserve aggregate venue ratings.
+
+Reports and blocking records associated with a deleted account are removed.
+Limited moderation records may be retained where reasonably necessary for
+security, abuse prevention, or legal compliance.
 
 Service-provider backups and security logs may remain temporarily under the
 provider's retention schedules before automatic expiration. We may also retain
