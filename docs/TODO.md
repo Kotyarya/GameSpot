@@ -26,7 +26,7 @@
 - loading/error/empty/retry states на основном reviewer journey;
 - versioned Supabase schema и семь SQL regression suites.
 
-Последние сохранённые evidence: 147/147 unit tests, authenticated Privacy UI path PASS, Release Simulator build PASS, TASK-78 local SQL regression PASS, local Security Advisor без замечаний, production SQL regressions 6/6, account deletion production E2E PASS.
+Последние сохранённые evidence: 147/147 unit tests, authenticated Privacy UI path PASS, Release Simulator build PASS, TASK-78 local SQL regression PASS, TASK-78 production migration/structure verification PASS, обновлённая Privacy Policy опубликована, production SQL regressions 6/6, account deletion production E2E PASS.
 
 ## Current release gates
 
@@ -58,11 +58,11 @@ Developer membership и App Store Connect app record.
 
 ### TASK-78 — reporting и blocking
 
-Статус: локальная реализация и автоматизированная проверка завершены. Добавлены
+Статус: production migration и автоматизированная проверка завершены. Добавлены
 report/block RPC, RLS, username policy, публичный профиль, скрытие заблокированных
-игроков, Unblock и manual moderation runbook. До статуса «Готово» нужны отдельное
-разрешение на применение migration к production Supabase и ручной E2E с двумя
-production test accounts.
+игроков, Unblock и manual moderation runbook. Privacy Policy опубликована по
+публичному HTTPS URL. До статуса «Готово» нужен ручной E2E с двумя production
+test accounts.
 
 ### TASK-9 — portfolio/App Store материалы
 

@@ -259,7 +259,7 @@ Commit: `44e09a0`. Статус: Тестирование.
 До изменения в GameSpot не было публичного профиля другого игрока, report/block
 flow, server-side username moderation или процедуры обработки жалоб.
 
-Сделано локально:
+Сделано:
 
 - добавлены `user_reports` и `user_blocks` с RLS, least-privilege grants и
   owner-only reads;
@@ -275,35 +275,37 @@ flow, server-side username moderation или процедуры обработк
 
 Проверка: clean local migration replay PASS, SQL regression PASS, local Supabase
 Security Advisor без замечаний, 147/147 unit tests PASS, Release Simulator build
-PASS. Production migration и реальный E2E ещё не выполнялись. Статус: готово к
-Code Review/QA.
+PASS. Migration применена к production как `20260914155638_add_user_safety`;
+read-only проверка подтвердила обе таблицы, триггеры, RLS и least-privilege grants.
+Privacy Policy опубликована commit `45c6cf7` ветки `gh-pages`. Реальный E2E с
+двумя production accounts ещё не выполнен, поэтому статус: Тестирование.
 
 ## Production Supabase: фактический результат
 
 На дату снимка production `GameSpot` активен в `eu-north-1`, Postgres 17.6.1. В нём:
 
-- 12 application tables в `public`;
+- 14 application tables в `public`;
 - enum `teams`;
-- 18 functions, из них 10 client-facing RPC, 4 lifecycle, 2 triggers/helpers, 1 delete RPC и hosted `rls_auto_enable`;
+- 25 functions, включая client-facing business RPC и TASK-78 safety/username helpers;
 - 4 cron jobs с минутным расписанием;
 - Realtime на `games`, `game_members`, `game_mvp_votes`, `profiles`, `sports`, `user_sport_stats`;
 - public-download bucket `avatars`, 5 MiB, JPEG/PNG, owner-only metadata/write/delete;
 - active Edge Function `delete-account`, JWT verification включена;
-- 9 migration-history entries.
+- 10 migration-history entries.
 
-Security Advisor сейчас показывает шесть намеренных authenticated `SECURITY DEFINER` business RPC, `park_reviews` с RLS без прямых policies и выключенную leaked-password protection. Эти пункты описаны в [DATABASE.md](DATABASE.md) и [TODO.md](TODO.md); они не означают возврат прежнего публичного доступа `anon`.
+Security Advisor сейчас показывает девять намеренных authenticated `SECURITY DEFINER` business RPC, `park_reviews` с RLS без прямых policies и выключенную leaked-password protection. Эти пункты описаны в [DATABASE.md](DATABASE.md) и [TODO.md](TODO.md); они не означают возврат прежнего публичного доступа `anon`.
 
 ## Git и публикации
 
 - Рабочая ветка: `codex/gamespot-appstore`.
 - `main` не изменялся и не сливался.
 - Feature-ветка не была pushed в рамках этой работы.
-- Единственный явно разрешённый внешний push — изолированная публикация privacy policy в `gh-pages`.
-- TASK-55 добавит документацию отдельным commit после проверки.
+- Явно разрешённые внешние push выполнялись только для изолированной публикации privacy policy в `gh-pages`; актуальный commit — `45c6cf7`.
+- Документация TASK-55 и последующие production evidence хранятся в feature-ветке.
 
 ## Источники
 
 - Git history и diff `369ce9c..3452ed0`.
 - Текущий Swift-код и SQL migrations в репозитории.
-- Read-only catalog production Supabase от 12 сентября 2026 года.
-- Задачи [TASK-56](https://app.notion.com/p/3bdb461e2b138108a5c7c2a943fc5b29), TASK-5, TASK-6, TASK-8, TASK-11–17, TASK-19, TASK-21, TASK-57–60 в Notion.
+- Read-only catalog production Supabase от 14 сентября 2026 года.
+- Задачи [TASK-56](https://app.notion.com/p/3bdb461e2b138108a5c7c2a943fc5b29), TASK-5, TASK-6, TASK-8, TASK-11–17, TASK-19, TASK-21, TASK-57–60 и TASK-78 в Notion.

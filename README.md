@@ -139,7 +139,7 @@ docs/                         # техническая и release докумен
 
 ## Текущий release status
 
-Основные security, lifecycle, account deletion, UI-state и test tasks завершены. Report/block flow готов локально и ожидает отдельного разрешения на production migration и ручной E2E. До App Store также остаются hosted password-recovery E2E, App Store Connect privacy metadata, screenshots, signing и TestFlight. Актуальная точка возврата — [TODO.md](docs/TODO.md); scope и progress отслеживаются в Notion epic TASK-56.
+Основные security, lifecycle, account deletion, UI-state и test tasks завершены. Report/block migration применена к production, а обновлённая Privacy Policy опубликована; для TASK-78 остаётся ручной E2E с двумя аккаунтами. До App Store также остаются hosted password-recovery E2E, App Store Connect privacy metadata, screenshots, signing и TestFlight. Актуальная точка возврата — [TODO.md](docs/TODO.md); scope и progress отслеживаются в Notion epic TASK-56.
 
 Public Privacy Policy: <https://kotyarya.github.io/GameSpot/>
 

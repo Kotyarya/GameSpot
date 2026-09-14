@@ -1,6 +1,6 @@
 # Supabase backend GameSpot
 
-Снимок: production project `GameSpot`, регион `eu-north-1`, Postgres 17.6.1, read-only проверка 12 сентября 2026 года. Секреты и пользовательские данные в этот документ не включены.
+Снимок: production project `GameSpot`, регион `eu-north-1`, Postgres 17.6.1, read-only проверка 14 сентября 2026 года. Секреты и пользовательские данные в этот документ не включены.
 
 ## Состав backend
 
@@ -260,7 +260,7 @@ Shared games сохраняются с `creator_id = NULL`; связанные r
 9. `20260912084515_restrict_rls_auto_enable.sql` — hosted helper privileges.
 10. `20260914145729_add_user_safety.sql` — reports, blocks, username policy и profile visibility.
 
-Первые девять remote migration versions имеют дату фактического production применения 12 сентября. TASK-78 migration пока проверена только локально и требует отдельного production approval. Existing production baseline был зарегистрирован без повторного CREATE; дальнейшие environments создаются полным локальным набором.
+Первые девять remote migration versions имеют дату фактического production применения 12 сентября. TASK-78 применена 14 сентября как remote migration `20260914155638_add_user_safety` и затем проверена read-only catalog queries. Existing production baseline был зарегистрирован без повторного CREATE; дальнейшие environments создаются полным локальным набором.
 
 Новые изменения всегда добавлять новой migration. Не редактировать уже применённые файлы и никогда не выполнять hosted `db reset`.
 
