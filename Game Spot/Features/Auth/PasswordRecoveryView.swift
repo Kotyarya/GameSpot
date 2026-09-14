@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import Supabase
 
 @MainActor
 final class PasswordRecoveryViewModel: ObservableObject {
@@ -51,8 +52,31 @@ final class PasswordRecoveryViewModel: ObservableObject {
             try await service.updatePassword(password)
             return true
         } catch {
-            errorMessage = "Couldn’t update your password. The link may have expired; request a new one and try again."
+            errorMessage = Self.userFacingMessage(for: error)
             return false
+        }
+    }
+
+    private static func userFacingMessage(
+        for error: Error
+    ) -> String {
+        guard let authError = error as? AuthError else {
+            return "Couldn’t update your password. Check your connection and try again."
+        }
+
+        switch authError.errorCode {
+        case .samePassword:
+            return "Choose a new password that is different from your current password."
+        case .weakPassword:
+            return "Your new password doesn’t meet the server’s password requirements."
+        case .sessionExpired,
+             .sessionNotFound,
+             .flowStateExpired,
+             .otpExpired,
+             .badCodeVerifier:
+            return "This password reset session has expired. Request a new link and try again."
+        default:
+            return "Couldn’t update your password. Try again."
         }
     }
 }

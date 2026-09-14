@@ -1,4 +1,5 @@
 import XCTest
+import Supabase
 @testable import Game_Spot
 
 @MainActor
@@ -83,6 +84,60 @@ final class PasswordRecoveryViewModelTests: XCTestCase {
             viewModel.errorMessage?.contains("secret") == true
         )
         XCTAssertFalse(viewModel.isLoading)
+    }
+
+    func testSamePasswordErrorExplainsThatPasswordMustChange() async {
+        let service = PasswordRecoveryServiceStub(
+            updateError: AuthError.api(
+                message: "New password should be different from the old password.",
+                errorCode: .samePassword,
+                underlyingData: Data(),
+                underlyingResponse: HTTPURLResponse(
+                    url: URL(string: "https://example.com/auth/v1/user")!,
+                    statusCode: 422,
+                    httpVersion: nil,
+                    headerFields: nil
+                )!
+            )
+        )
+        let viewModel = PasswordRecoveryViewModel(service: service)
+        viewModel.password = "Password1"
+        viewModel.confirmation = "Password1"
+
+        let result = await viewModel.updatePassword()
+
+        XCTAssertFalse(result)
+        XCTAssertEqual(
+            viewModel.errorMessage,
+            "Choose a new password that is different from your current password."
+        )
+    }
+
+    func testExpiredSessionErrorStillRequestsANewLink() async {
+        let service = PasswordRecoveryServiceStub(
+            updateError: AuthError.api(
+                message: "Session expired.",
+                errorCode: .sessionExpired,
+                underlyingData: Data(),
+                underlyingResponse: HTTPURLResponse(
+                    url: URL(string: "https://example.com/auth/v1/user")!,
+                    statusCode: 401,
+                    httpVersion: nil,
+                    headerFields: nil
+                )!
+            )
+        )
+        let viewModel = PasswordRecoveryViewModel(service: service)
+        viewModel.password = "Password1"
+        viewModel.confirmation = "Password1"
+
+        let result = await viewModel.updatePassword()
+
+        XCTAssertFalse(result)
+        XCTAssertEqual(
+            viewModel.errorMessage,
+            "This password reset session has expired. Request a new link and try again."
+        )
     }
 }
 
