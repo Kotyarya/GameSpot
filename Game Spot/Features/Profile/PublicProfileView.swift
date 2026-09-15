@@ -11,6 +11,7 @@ struct PublicProfileView: View {
 
     @State private var showsReportSheet = false
     @State private var showsBlockConfirmation = false
+    @State private var reportWasSubmitted = false
     @State private var presentedAlert: PublicProfileAlert?
 
     @Environment(\.dismiss) private var dismiss
@@ -43,13 +44,18 @@ struct PublicProfileView: View {
             isPresented: $showsReportSheet,
             onDismiss: {
                 viewModel.clearMessages()
+
+                if reportWasSubmitted {
+                    reportWasSubmitted = false
+                    presentedAlert = .reportSubmitted
+                }
             }
         ) {
             ReportUserSheet(
                 profile: profile,
                 viewModel: viewModel,
                 onSubmitted: {
-                    presentedAlert = .reportSubmitted
+                    reportWasSubmitted = true
                 }
             )
         }
@@ -474,8 +480,8 @@ private struct ReportUserSheet: View {
             return
         }
 
-        dismiss()
         onSubmitted()
+        dismiss()
     }
 }
 
