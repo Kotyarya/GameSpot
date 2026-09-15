@@ -14,38 +14,163 @@ final class NavigationFlowUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
-        app.launch()
     }
 
     // MARK: - Tab Bar
 
     func testMainTabBarVisibleWhenAuthenticated() throws {
-        let mapTab = app.tabBars.buttons["Map"]
-        let gamesTab = app.tabBars.buttons["My Games"]
-        let profileTab = app.tabBars.buttons["Profile"]
+        let environment = ProcessInfo.processInfo.environment
 
-        let mapExists = mapTab.waitForExistence(timeout: 20)
-        let gamesExists = gamesTab.waitForExistence(timeout: 2)
-        let profileExists = profileTab.waitForExistence(timeout: 2)
-
-        // Pass when main tabs are visible (logged in) or skip assertion when on auth.
-        if mapExists && gamesExists && profileExists {
-            XCTAssertTrue(mapTab.isSelected)
-
-            gamesTab.tap()
-            XCTAssertTrue(gamesTab.isSelected)
-
-            profileTab.tap()
-            XCTAssertTrue(profileTab.isSelected)
-
-            mapTab.tap()
-            XCTAssertTrue(mapTab.isSelected)
-        } else {
-            // Unauthenticated launch — verify auth UI instead of failing.
-            XCTAssertTrue(
-                app.buttons["Sign In"].waitForExistence(timeout: 5)
-                || app.staticTexts["Game Spot"].waitForExistence(timeout: 5)
+        guard
+            let email = environment["GAMESPOT_UI_TEST_EMAIL"],
+            !email.isEmpty,
+            let password = environment["GAMESPOT_UI_TEST_PASSWORD"],
+            !password.isEmpty
+        else {
+            throw XCTSkip(
+                "Set GAMESPOT_UI_TEST_EMAIL and GAMESPOT_UI_TEST_PASSWORD "
+                + "for a fully onboarded test account."
             )
         }
+
+        app.launch()
+        signOutIfNeeded()
+
+        let emailField = app.textFields["Enter your email"]
+        let passwordField = app.secureTextFields["Enter your password"]
+
+        XCTAssertTrue(emailField.waitForExistence(timeout: 15))
+        XCTAssertTrue(passwordField.waitForExistence(timeout: 5))
+
+        emailField.tap()
+        emailField.typeText(email)
+
+        passwordField.tap()
+        passwordField.typeText(password)
+
+        app.buttons["Sign In"].tap()
+
+        let mapTab = tabButton(
+            title: "Map",
+            identifier: "map.fill"
+        )
+        let gamesTab = tabButton(
+            title: "My Games",
+            identifier: "sportscourt.fill"
+        )
+        let profileTab = tabButton(
+            title: "Profile",
+            identifier: "person.crop.circle"
+        )
+
+        XCTAssertTrue(
+            mapTab.waitForExistence(timeout: 20),
+            "Authenticated navigation must show the Map tab."
+        )
+        dismissPasswordSavePromptIfPresent(timeout: 5)
+        XCTAssertTrue(gamesTab.waitForExistence(timeout: 5))
+        XCTAssertTrue(profileTab.waitForExistence(timeout: 5))
+
+        mapTab.tap()
+        XCTAssertTrue(mapTab.isSelected)
+
+        gamesTab.tap()
+        XCTAssertTrue(
+            app.navigationBars["My Games"].waitForExistence(timeout: 10)
+        )
+        XCTAssertTrue(gamesTab.isSelected)
+
+        profileTab.tap()
+        XCTAssertTrue(
+            app.staticTexts["Overall Profile"].waitForExistence(timeout: 10),
+            "Selecting Profile must load authenticated profile content."
+        )
+        XCTAssertTrue(profileTab.isSelected)
+
+        mapTab.tap()
+        XCTAssertTrue(mapTab.isSelected)
+
+        profileTab.tap()
+
+        let signOutButton = app.buttons["Sign Out"]
+        XCTAssertTrue(
+            scrollToHittable(signOutButton),
+            "The authenticated journey must end with a real sign out."
+        )
+        signOutButton.tap()
+
+        XCTAssertTrue(
+            app.buttons["Sign In"].waitForExistence(timeout: 15),
+            "Signing out must return to the authentication screen."
+        )
+    }
+
+    // MARK: - Helpers
+
+    private func tabButton(
+        title: String,
+        identifier: String
+    ) -> XCUIElement {
+        app.tabBars.buttons
+            .matching(
+                NSPredicate(
+                    format: "label == %@ OR identifier == %@",
+                    title,
+                    identifier
+                )
+            )
+            .firstMatch
+    }
+
+    private func dismissPasswordSavePromptIfPresent(
+        timeout: TimeInterval
+    ) {
+        let notNowButton = app.buttons["Not Now"]
+
+        if notNowButton.waitForExistence(timeout: timeout) {
+            notNowButton.tap()
+        }
+    }
+
+    private func signOutIfNeeded() {
+        let signInButton = app.buttons["Sign In"]
+
+        if signInButton.waitForExistence(timeout: 3) {
+            return
+        }
+
+        let profileTab = tabButton(
+            title: "Profile",
+            identifier: "person.crop.circle"
+        )
+
+        guard profileTab.waitForExistence(timeout: 10) else {
+            return
+        }
+
+        profileTab.tap()
+
+        let signOutButton = app.buttons["Sign Out"]
+
+        guard scrollToHittable(signOutButton) else {
+            return
+        }
+
+        signOutButton.tap()
+        _ = signInButton.waitForExistence(timeout: 15)
+    }
+
+    private func scrollToHittable(
+        _ element: XCUIElement
+    ) -> Bool {
+        for _ in 0..<8 {
+            if element.isHittable {
+                return true
+            }
+
+            app.swipeUp()
+        }
+
+        return element.isHittable
     }
 }

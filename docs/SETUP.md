@@ -129,19 +129,36 @@ xcodebuild test \
   -only-testing:'Game SpotUITests'
 ```
 
-Большинство tests используют DEBUG-only harness и не требует account. `testAuthenticatedUserCanOpenPrivacyPolicy` выполняется только при наличии полностью onboarded disposable/test account:
+Большинство tests используют DEBUG-only harness и не требуют account. Authenticated tests выполняются только при наличии полностью onboarded disposable/test account. Передавайте credentials через временное окружение уже запущенного симулятора, потому что UI-test runner не наследует произвольные shell variables от `xcodebuild`:
 
 ```bash
-GAMESPOT_UI_TEST_EMAIL='temporary@example.invalid' \
-GAMESPOT_UI_TEST_PASSWORD='temporary-password' \
+read -r 'GAMESPOT_UI_TEST_EMAIL?Test email: '
+read -rs 'GAMESPOT_UI_TEST_PASSWORD?Test password: '
+echo
+GAMESPOT_SIMULATOR_UDID='<Simulator UDID from Xcode>'
+
+xcrun simctl boot "$GAMESPOT_SIMULATOR_UDID" 2>/dev/null || true
+xcrun simctl bootstatus "$GAMESPOT_SIMULATOR_UDID" -b
+xcrun simctl spawn "$GAMESPOT_SIMULATOR_UDID" launchctl setenv \
+  GAMESPOT_UI_TEST_EMAIL "$GAMESPOT_UI_TEST_EMAIL"
+xcrun simctl spawn "$GAMESPOT_SIMULATOR_UDID" launchctl setenv \
+  GAMESPOT_UI_TEST_PASSWORD "$GAMESPOT_UI_TEST_PASSWORD"
+
 xcodebuild test \
   -project "Game Spot.xcodeproj" \
   -scheme "Game Spot" \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-  -only-testing:'Game SpotUITests/AuthFlowUITests/testAuthenticatedUserCanOpenPrivacyPolicy'
+  -destination "platform=iOS Simulator,id=$GAMESPOT_SIMULATOR_UDID" \
+  -only-testing:'Game SpotUITests/NavigationFlowUITests/testMainTabBarVisibleWhenAuthenticated'
+
+xcrun simctl spawn "$GAMESPOT_SIMULATOR_UDID" launchctl unsetenv \
+  GAMESPOT_UI_TEST_EMAIL
+xcrun simctl spawn "$GAMESPOT_SIMULATOR_UDID" launchctl unsetenv \
+  GAMESPOT_UI_TEST_PASSWORD
+unset GAMESPOT_UI_TEST_EMAIL GAMESPOT_UI_TEST_PASSWORD \
+  GAMESPOT_SIMULATOR_UDID
 ```
 
-Не записывайте credentials в scheme, shell history, Git или документацию. В production-тесте используйте одноразовый account и удалите его после проверки. Для App Review нужен отдельный стабильный account, не disposable automation user.
+При необходимости замените `-only-testing` на другой authenticated test, например `Game SpotUITests/AuthFlowUITests/testAuthenticatedUserCanOpenPrivacyPolicy`. Не записывайте credentials в scheme, shell history, Git или документацию. В production-тесте используйте одноразовый account и удалите его после проверки. Для App Review нужен отдельный стабильный account, не disposable automation user.
 
 ## Release build без подписи
 
