@@ -10,18 +10,18 @@ struct ProfileView: View {
     @StateObject private var viewModel =
         ProfileViewModel()
 
-    @StateObject private var accountDeletionViewModel =
-        AccountDeletionViewModel()
-
-    @State private var showsDeleteConfirmation = false
-    @State private var accountDeletionAlert: AccountDeletionAlert?
     @State private var selectedAvatarItem: PhotosPickerItem?
     @State private var showsRemoveAvatarConfirmation = false
+    @State private var isEditingProfile = false
+    @State private var avatarJiggles = false
 
     // MARK: - Environment
 
     @EnvironmentObject var session:
         SessionManager
+
+    @Environment(\.accessibilityReduceMotion)
+    private var reduceMotion
 
     // MARK: - Overall Rank
 
@@ -33,28 +33,6 @@ struct ProfileView: View {
         return RankHelper.getRank(
             rating: rating
         )
-    }
-
-    // MARK: - Helpers
-
-    private func sportRank(
-        for rating: Int
-    ) -> Rank {
-
-        RankHelper.getRank(
-            rating: rating
-        )
-    }
-
-    private var fallbackIcon: some View {
-
-        Image(
-            systemName: "person.crop.circle.fill"
-        )
-        .resizable()
-        .scaledToFit()
-        .padding(18)
-        .foregroundStyle(rank.textColor)
     }
 
     // MARK: - Body
@@ -81,6 +59,33 @@ struct ProfileView: View {
                 await replaceAvatar(from: item)
             }
         }
+        .onChange(of: isEditingProfile) { _, isEditing in
+            avatarJiggles = isEditing && !reduceMotion
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                NavigationLink {
+                    SettingsView()
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+                .accessibilityLabel("Settings")
+                .accessibilityIdentifier("profile.settings")
+            }
+
+            if viewModel.profile != nil {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(
+                        isEditingProfile ? "Done" : "Edit"
+                    ) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            isEditingProfile.toggle()
+                        }
+                    }
+                    .accessibilityIdentifier("profile.edit")
+                }
+            }
+        }
         .confirmationDialog(
             "Remove Profile Photo?",
             isPresented: $showsRemoveAvatarConfirmation,
@@ -95,47 +100,6 @@ struct ProfileView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Your profile will use the default avatar.")
-        }
-        .confirmationDialog(
-            "Delete Account?",
-            isPresented: $showsDeleteConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Continue", role: .destructive) {
-                accountDeletionAlert = .finalConfirmation
-            }
-
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text(
-                "This permanently removes your profile, avatar, match participation, MVP votes, and park reviews."
-            )
-        }
-        .alert(item: $accountDeletionAlert) { alert in
-            switch alert {
-            case .finalConfirmation:
-                Alert(
-                    title: Text("Permanently Delete Account?"),
-                    message: Text(
-                        "This action cannot be undone. You will be signed out and will not be able to sign in to this account again."
-                    ),
-                    primaryButton: .destructive(
-                        Text("Delete Forever")
-                    ) {
-                        Task {
-                            await deleteAccount()
-                        }
-                    },
-                    secondaryButton: .cancel()
-                )
-
-            case let .error(message):
-                Alert(
-                    title: Text("Couldn’t Delete Account"),
-                    message: Text(message),
-                    dismissButton: .default(Text("OK"))
-                )
-            }
         }
     }
 
@@ -201,168 +165,77 @@ struct ProfileView: View {
 
     // MARK: - Header
 
+    @ViewBuilder
     private var headerSection: some View {
 
-        ZStack {
-
-            rank.backgroundColor
-
-            PatternBackground(
-                symbol:
-                    viewModel.profile?
-                    .favoriteSport?
-                    .type?
-                    .iconName
-                ?? "trophy.fill",
-
-                color: .black,
-                opacity: 0.1
-            )
-
-            VStack {
-
-                overallRankBadge
-
-                avatarSection
-
-                usernameSection
-
-                globalRatingSection
-            }
-            .padding(.top, 32)
-        }
-        .frame(maxHeight: 463)
-        .clipped()
-        .clipShape(
-            RoundedRectangle(
-                cornerRadius: 48
-            )
-        )
-    }
-
-    // MARK: - Overall Rank
-
-    private var overallRankBadge: some View {
-
-        VStack(spacing: 8) {
-
-            ZStack {
-
-                Text(rank.title)
-                    .font(.title)
-                    .bold()
-                    .fontDesign(.rounded)
-                    .foregroundStyle(
-                        rank.textColor
-                    )
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-            }
-            .background(rank.borderColor)
-            .clipShape(
-                RoundedRectangle(
-                    cornerRadius: 12
-                )
-            )
-        }
-    }
-
-    // MARK: - Avatar
-
-    private var avatarSection: some View {
-
-        ZStack {
-
-            Circle()
-                .fill(
-                    rank.backgroundColor
-                        .opacity(0.25)
-                )
-
-            if let urlString =
-                viewModel.profile?.avatarUrl,
-               let url = URL(string: urlString) {
-
-                AsyncImage(url: url) { image in
-
-                    image
-                        .resizable()
-                        .scaledToFill()
-
-                } placeholder: {
-
-                    fallbackIcon
-                }
-
-            } else {
-
-                fallbackIcon
+        if let profile = viewModel.profile {
+            ProfileHeroView(
+                username: profile.username ?? "Nickname",
+                rating: profile.rating,
+                favoriteSportIcon:
+                    profile.favoriteSport?
+                        .type?
+                        .iconName
+                    ?? "trophy.fill"
+            ) {
+                editableAvatar(profile)
             }
         }
-        .frame(width: 120, height: 120)
-        .clipShape(Circle())
-        .overlay {
+    }
 
-            Circle()
-                .stroke(
-                    rank.borderColor,
-                    lineWidth: 2
+    @ViewBuilder
+    private func editableAvatar(
+        _ profile: Profile
+    ) -> some View {
+
+        let avatar = ProfileAvatarView(
+            username: profile.username ?? "Nickname",
+            avatarURL: profile.avatarUrl,
+            rank: rank
+        )
+
+        if isEditingProfile {
+            PhotosPicker(
+                selection: $selectedAvatarItem,
+                matching: .images
+            ) {
+                avatar
+                    .overlay(alignment: .topTrailing) {
+                        Image(systemName: "pencil")
+                            .font(.headline)
+                            .foregroundStyle(.white)
+                            .padding(9)
+                            .background(
+                                Color("AccentColor"),
+                                in: Circle()
+                            )
+                            .overlay {
+                                Circle()
+                                    .stroke(.white, lineWidth: 2)
+                            }
+                    }
+            }
+            .buttonStyle(.plain)
+            .disabled(viewModel.isUpdatingAvatar)
+            .rotationEffect(
+                .degrees(
+                    reduceMotion
+                    ? 0
+                    : avatarJiggles ? 1.5 : -1.5
                 )
-        }
-        .shadow(radius: 6)
-        .padding(.top, 12)
-    }
-
-    // MARK: - Username
-
-    private var usernameSection: some View {
-
-        Text(
-            viewModel.profile?.username
-            ?? "Nickname"
-        )
-        .font(.largeTitle)
-        .bold()
-    }
-
-    // MARK: - Global Rating
-
-    private var globalRatingSection: some View {
-
-        Gauge(
-            value: Double(
-                viewModel.profile?.rating ?? 0
-            ),
-
-            in: 0...9999
-        ) {
-
-            Image(systemName: "trophy.fill")
-                .foregroundStyle(rank.textColor)
-
-        } currentValueLabel: {
-
-            Text(
-                NumberFormatterHelper
-                    .formatRating(
-                        viewModel.profile?.rating ?? 0
-                    )
             )
-            .bold()
-            .foregroundStyle(rank.textColor)
+            .animation(
+                reduceMotion
+                ? .default
+                : .easeInOut(duration: 0.12)
+                    .repeatForever(autoreverses: true),
+                value: avatarJiggles
+            )
+            .accessibilityIdentifier("profile.avatar.choose")
+
+        } else {
+            avatar
         }
-        .gaugeStyle(.accessoryCircular)
-        .scaleEffect(1.5)
-        .padding(.top, 26)
-        .tint(rank.textColor)
-        .shadow(
-            color: rank.textColor.opacity(0.6),
-            radius: 12
-        )
-        .shadow(
-            color: rank.textColor.opacity(0.3),
-            radius: 20
-        )
     }
 
     // MARK: - Sections
@@ -385,15 +258,9 @@ struct ProfileView: View {
                 sportStatsSection
             }
 
-            avatarManagementSection
-
-            blockedUsersSection
-
-            privacySection
-
-            signOutSection
-
-            deleteAccountSection
+            if isEditingProfile {
+                avatarEditingSection
+            }
         }
         .padding(.horizontal, 20)
         .padding(.top, 32)
@@ -432,128 +299,33 @@ struct ProfileView: View {
 
     private var overallProfileSection: some View {
 
-        VStack(alignment: .leading) {
-
-            Text("Overall Profile")
-                .font(.largeTitle)
-                .bold()
-
-            VStack(spacing: 24) {
-
-                ZStack {
-
-                    Text(rank.title)
-                        .font(.title)
-                        .bold()
-                        .fontDesign(.rounded)
-                        .foregroundStyle(
-                            rank.textColor
-                        )
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                }
-                .background(rank.borderColor)
-                .clipShape(
-                    RoundedRectangle(
-                        cornerRadius: 10
-                    )
-                )
-
-                HStack(spacing: 0) {
-
-                    statItem(
-                        value:
-                            NumberFormatterHelper
-                            .formatRating(
-                                viewModel.profile?
-                                    .gamesPlayed ?? 0
-                            ),
-
-                        title: "Matches"
-                    )
-
-                    statItem(
-                        value:
-                            NumberFormatterHelper
-                            .formatRating(
-                                viewModel.profile?
-                                    .mvpCount ?? 0
-                            ),
-
-                        title: "MVP"
-                    )
-
-                    statItem(
-                        value:
-                            NumberFormatterHelper
-                            .formatRating(
-                                viewModel.profile?
-                                    .perfPoints ?? 0
-                            ),
-
-                        title: "Points"
-                    )
-                }
-            }
-            .padding(.vertical, 18)
-            .frame(maxWidth: .infinity)
-            .glassEffect(
-                .regular
-                    .tint(.clear)
-                    .interactive(true),
-
-                in: RoundedRectangle(
-                    cornerRadius: 24,
-                    style: .continuous
-                )
-            )
-        }
+        ProfileSummaryCard(
+            rating: viewModel.profile?.rating ?? 0,
+            gamesPlayed:
+                viewModel.profile?.gamesPlayed ?? 0,
+            mvpCount: viewModel.profile?.mvpCount ?? 0,
+            perfPoints:
+                viewModel.profile?.perfPoints ?? 0
+        )
     }
 
-    // MARK: - Avatar Management
+    // MARK: - Avatar Editing
 
-    private var avatarManagementSection: some View {
+    private var avatarEditingSection: some View {
 
-        let chooseButtonTitle = viewModel.profile?.avatarUrl == nil
-            ? "Add Photo"
-            : "Replace Photo"
+        VStack(spacing: 12) {
 
-        return VStack(alignment: .leading, spacing: 14) {
-
-            Text("Profile Photo")
-                .font(.largeTitle)
-                .bold()
-
-            HStack(spacing: 12) {
-
-                PhotosPicker(
-                    selection: $selectedAvatarItem,
-                    matching: .images
+            if viewModel.profile?.avatarUrl != nil {
+                Button(
+                    "Remove Profile Photo",
+                    systemImage: "trash",
+                    role: .destructive
                 ) {
-                    Label(
-                        chooseButtonTitle,
-                        systemImage: "photo.badge.plus"
-                    )
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    showsRemoveAvatarConfirmation = true
                 }
-                .buttonStyle(.glassProminent)
-                .tint(Color("AccentColor"))
+                .buttonStyle(.bordered)
                 .disabled(viewModel.isUpdatingAvatar)
-                .accessibilityIdentifier("profile.avatar.choose")
-
-                if viewModel.profile?.avatarUrl != nil {
-
-                    Button(role: .destructive) {
-                        showsRemoveAvatarConfirmation = true
-                    } label: {
-                        Image(systemName: "trash")
-                            .frame(width: 44, height: 44)
-                    }
-                    .buttonStyle(.glass)
-                    .disabled(viewModel.isUpdatingAvatar)
-                    .accessibilityIdentifier("profile.avatar.remove")
-                }
+                .accessibilityIdentifier("profile.avatar.remove")
             }
 
             if viewModel.isUpdatingAvatar {
@@ -577,6 +349,8 @@ struct ProfileView: View {
                 .accessibilityIdentifier("profile.avatar.error")
             }
         }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
     }
 
     private func replaceAvatar(
@@ -651,351 +425,9 @@ struct ProfileView: View {
     // MARK: - Sport Stats
 
     private var sportStatsSection: some View {
-
-        VStack(spacing: 32) {
-
-            ForEach(viewModel.stats) { stat in
-
-                sportStatCard(stat)
-            }
-        }
-    }
-
-    // MARK: - Sport Stat Card
-
-    private func sportStatCard(
-        _ stat: UserSportStats
-    ) -> some View {
-
-        let sportRank =
-            sportRank(for: stat.rating)
-
-        return VStack(alignment: .leading) {
-
-            Text(
-                "\(stat.sport.name.capitalized)"
-            )
-            .font(.largeTitle)
-            .bold()
-
-            VStack(spacing: 28) {
-
-                sportGaugeSection(
-                    stat: stat,
-                    rank: sportRank
-                )
-
-                sportRankSection(
-                    rank: sportRank
-                )
-
-                sportStatsItems(
-                    stat: stat
-                )
-            }
-            .padding(.vertical, 18)
-            .frame(maxWidth: .infinity)
-            .glassEffect(
-                .regular
-                    .tint(
-                        sportRank
-                            .backgroundColor
-                            .opacity(0.15)
-                    )
-                    .interactive(true),
-
-                in: RoundedRectangle(
-                    cornerRadius: 24,
-                    style: .continuous
-                )
-            )
-        }
-    }
-
-    // MARK: - Sport Gauge
-
-    private func sportGaugeSection(
-        stat: UserSportStats,
-        rank: Rank
-    ) -> some View {
-
-        Gauge(
-            value: Double(stat.rating),
-            in: 0...9999
-        ) {
-
-            Image(
-                systemName: "trophy.fill"
-            )
-            .foregroundStyle(
-                rank.borderColor
-            )
-
-        } currentValueLabel: {
-
-            Text(
-                NumberFormatterHelper
-                    .formatRating(
-                        stat.rating
-                    )
-            )
-            .bold()
-            .foregroundStyle(
-                rank.borderColor
-            )
-        }
-        .gaugeStyle(.accessoryCircular)
-        .scaleEffect(1.45)
-        .padding(.top, 20)
-        .tint(rank.borderColor)
-        .shadow(
-            color:
-                rank.textColor
-                .opacity(0.3),
-
-            radius: 10
+        ProfileSportStatsSection(
+            stats: viewModel.stats
         )
-    }
-
-    // MARK: - Sport Rank
-
-    private func sportRankSection(
-        rank: Rank
-    ) -> some View {
-
-        ZStack {
-
-            Text(rank.title)
-                .font(.title2)
-                .bold()
-                .fontDesign(.rounded)
-                .foregroundStyle(
-                    rank.textColor
-                )
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-        }
-        .background(
-            rank.borderColor
-        )
-        .clipShape(
-            RoundedRectangle(
-                cornerRadius: 10
-            )
-        )
-        .shadow(
-            color:
-                rank.textColor
-                .opacity(0.25),
-
-            radius: 8
-        )
-    }
-
-    // MARK: - Sport Stats Items
-
-    private func sportStatsItems(
-        stat: UserSportStats
-    ) -> some View {
-
-        HStack(spacing: 0) {
-
-            statItem(
-                value:
-                    NumberFormatterHelper
-                    .formatRating(
-                        stat.gamesPlayed
-                    ),
-
-                title: "Matches"
-            )
-
-            statItem(
-                value:
-                    NumberFormatterHelper
-                    .formatRating(
-                        stat.mvpCount
-                    ),
-
-                title: "MVP"
-            )
-
-            statItem(
-                value:
-                    NumberFormatterHelper
-                    .formatRating(
-                        stat.perfPoints
-                    ),
-
-                title: "Points"
-            )
-        }
-    }
-
-    // MARK: - Blocked Users
-
-    private var blockedUsersSection: some View {
-        NavigationLink {
-            BlockedUsersView()
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "person.crop.circle.badge.xmark")
-
-                Text("Blocked Users")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-        }
-        .buttonStyle(.glass)
-        .accessibilityIdentifier("profile.blockedUsers")
-    }
-
-    private var privacySection: some View {
-        NavigationLink {
-            PrivacyPolicyView()
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "hand.raised.fill")
-
-                Text("Privacy Policy")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-        }
-        .buttonStyle(.glass)
-        .accessibilityIdentifier("profile.privacyPolicy")
-    }
-
-    // MARK: - Sign Out
-
-    private var signOutSection: some View {
-
-        Button {
-
-            Task {
-                await session.signOut()
-            }
-
-        } label: {
-
-            HStack(
-                alignment: .center,
-                spacing: 6
-            ) {
-
-                Image(
-                    systemName:
-                        "rectangle.portrait.and.arrow.right"
-                )
-                .font(.system(size: 18))
-
-                Text("Sign Out")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-        }
-        .buttonStyle(.glassProminent)
-        .tint(.red.opacity(0.2))
-        .foregroundStyle(
-            .red
-        )
-    }
-
-    // MARK: - Delete Account
-
-    private var deleteAccountSection: some View {
-        Button(role: .destructive) {
-            showsDeleteConfirmation = true
-        } label: {
-            HStack(spacing: 8) {
-                if accountDeletionViewModel.isDeleting {
-                    ProgressView()
-                        .controlSize(.small)
-                } else {
-                    Image(systemName: "trash")
-                }
-
-                Text(
-                    accountDeletionViewModel.isDeleting
-                    ? "Deleting Account…"
-                    : "Delete Account"
-                )
-                .font(.headline)
-                .fontWeight(.semibold)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-        }
-        .buttonStyle(.glass)
-        .foregroundStyle(.red)
-        .disabled(accountDeletionViewModel.isDeleting)
-        .accessibilityIdentifier("profile.deleteAccount")
-    }
-
-    private func deleteAccount() async {
-        guard await accountDeletionViewModel.deleteAccount() else {
-            accountDeletionAlert = .error(
-                accountDeletionViewModel.errorMessage
-                ?? "Please try again."
-            )
-            return
-        }
-
-        await session.completeAccountDeletion()
-    }
-
-    // MARK: - Stat Item
-
-    @ViewBuilder
-    private func statItem(
-        value: String,
-        title: String
-    ) -> some View {
-
-        VStack {
-
-            Text(value)
-                .font(.title)
-                .bold()
-
-            Text(title)
-                .font(.headline)
-                .fontWeight(.semibold)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-
-private enum AccountDeletionAlert: Identifiable {
-    case finalConfirmation
-    case error(String)
-
-    var id: String {
-        switch self {
-        case .finalConfirmation:
-            "finalConfirmation"
-        case let .error(message):
-            "error-\(message)"
-        }
     }
 }
 

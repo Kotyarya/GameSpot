@@ -92,12 +92,28 @@ final class NavigationFlowUITests: XCTestCase {
 
         profileTab.tap()
 
-        let signOutButton = app.buttons["Sign Out"]
+        let settingsButton = app.descendants(matching: .any)[
+            "profile.settings"
+        ]
         XCTAssertTrue(
-            scrollToHittable(signOutButton),
-            "The authenticated journey must end with a real sign out."
+            settingsButton.waitForExistence(timeout: 5),
+            "Profile must expose Settings from the navigation bar."
         )
+        settingsButton.tap()
+
+        let signOutButton = app.descendants(matching: .any)[
+            "settings.signOut"
+        ]
+        XCTAssertTrue(signOutButton.waitForExistence(timeout: 5))
         signOutButton.tap()
+
+        let confirmSignOutButton = app.descendants(matching: .any)[
+            "settings.signOut.confirm"
+        ]
+        XCTAssertTrue(
+            confirmSignOutButton.waitForExistence(timeout: 5)
+        )
+        confirmSignOutButton.tap()
 
         XCTAssertTrue(
             app.buttons["Sign In"].waitForExistence(timeout: 15),
@@ -150,13 +166,35 @@ final class NavigationFlowUITests: XCTestCase {
 
         profileTab.tap()
 
-        let signOutButton = app.buttons["Sign Out"]
+        let settingsButton = app.descendants(matching: .any)[
+            "profile.settings"
+        ]
 
-        guard scrollToHittable(signOutButton) else {
+        guard settingsButton.waitForExistence(timeout: 5) else {
+            return
+        }
+
+        settingsButton.tap()
+
+        let signOutButton = app.descendants(matching: .any)[
+            "settings.signOut"
+        ]
+
+        guard signOutButton.waitForExistence(timeout: 5) else {
             return
         }
 
         signOutButton.tap()
+
+        let confirmSignOutButton = app.descendants(matching: .any)[
+            "settings.signOut.confirm"
+        ]
+
+        guard confirmSignOutButton.waitForExistence(timeout: 5) else {
+            return
+        }
+
+        confirmSignOutButton.tap()
         _ = signInButton.waitForExistence(timeout: 15)
     }
 

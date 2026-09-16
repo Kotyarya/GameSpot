@@ -98,3 +98,20 @@ struct GameDetails: Decodable, Identifiable {
         case mvpPlayer = "mvp_player"
     }
 }
+
+// MARK: Game Member
+
+struct GameMember: Decodable, Identifiable, Equatable {
+
+    let userId: UUID
+    let team: Team
+
+    var id: UUID {
+        userId
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
+        case team
+    }
+}

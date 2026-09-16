@@ -55,7 +55,7 @@ ready              -> main
 
 - Map — отдельный `NavigationStack` и `mapPath`;
 - My Games — отдельный `NavigationStack` и `gamesPath`;
-- Profile — собственный `NavigationStack`, но без маршрутов в `AppRouter`.
+- Profile — собственный `NavigationStack`; Settings и его дочерние экраны открываются локальными `NavigationLink`, без маршрутов в `AppRouter`.
 
 Typed `Route` поддерживает:
 
@@ -64,7 +64,7 @@ Typed `Route` поддерживает:
 - `.game(UUID)`;
 - `.createGame(park:sports:)`.
 
-Функция `destination(_:)` строит конечный экран. Profile-навигация к Privacy Policy создаётся локально в `ProfileView`.
+Функция `destination(_:)` строит конечный экран. Profile-навигация к `SettingsView`, Privacy Policy и Blocked Users создаётся локально.
 
 ## Слои и ответственность
 
@@ -83,9 +83,10 @@ Views отвечают за layout, presentation state, navigation и отпра
 | `ParkInfoView` | данные площадки, рейтинг, игры и create action |
 | `GamesView` | игры пользователя или выбранного парка |
 | `CreateGameView` | sport/time и создание игры |
-| `GameInfoView` | состав команд, weather, Join/Leave, MVP и состояния матча |
+| `GameInfoView` | состав команд, weather, Join/Leave, MVP и состояния матча; заблокированные участники остаются в roster как анонимные non-interactive rows, но исключаются из social detail |
 | `JoinGameSheetView` | выбор команды или выход из матча |
-| `ProfileView` | профиль, global/per-sport stats, recent matches, avatar, privacy, sign out/delete |
+| `ProfileView` / `PublicProfileView` | общие hero/summary/per-sport components; собственный профиль добавляет Edit/avatar actions, публичный — Report/Block |
+| `SettingsView` | Privacy Policy, Blocked Users, support/about, sign out и удаление аккаунта с системными confirmations |
 | `PasswordResetRequestView` | запрос recovery email |
 | `PasswordRecoveryView` | новый пароль по deep link |
 
@@ -103,6 +104,7 @@ Views отвечают за layout, presentation state, navigation и отпра
 | `CreateGameViewModel` | client validation sport и create RPC | `GameCreating` |
 | `GameInfoViewModel` | details, optional weather, Join/Leave/Vote, Realtime | `GameInfoServing`, `WeatherFetching`, `GameInfoRealtimeSubscribing` |
 | `ProfileViewModel` | profile/stats/recent matches, avatar actions, Realtime | `ProfileFetching`, `ProfileRealtimeSubscribing`, avatar protocols |
+| `PublicProfileViewModel` | read-only profile и per-sport stats другого игрока | `ProfileFetching` |
 | `AccountDeletionViewModel` | single-flight delete и user-safe error | `AccountDeleting` |
 | `PasswordResetRequestViewModel` | neutral recovery request result | `PasswordRecoveryServing` |
 | `PasswordRecoveryViewModel` | password policy + update | `PasswordRecoveryServing` |
@@ -214,7 +216,7 @@ Profile Setup выполняет те же операции последоват
 ### Удаление аккаунта
 
 ```text
-ProfileView -> AccountDeletionViewModel
+ProfileView -> SettingsView -> AccountDeletionViewModel
   -> AccountDeletionService DELETE /functions/v1/delete-account
   -> gateway verifies JWT
   -> remove avatar

@@ -8,6 +8,8 @@ final class GameInfoViewModel: ObservableObject {
     // MARK: - State
     
     @Published var details: GameDetails?
+
+    @Published private(set) var gameMembers: [GameMember] = []
     
     @Published var weather: Weather?
     
@@ -111,12 +113,18 @@ final class GameInfoViewModel: ObservableObject {
     private func loadGameDetails(
         gameId: UUID
     ) async throws {
-        
-        details =
-            try await gameService
-                .fetchGameDetails(
-                    gameId: gameId
-                )
+
+        let loadedDetails = try await gameService
+            .fetchGameDetails(
+                gameId: gameId
+            )
+        let loadedMembers = try await gameService
+            .fetchGameMembers(
+                gameId: gameId
+            )
+
+        details = loadedDetails
+        gameMembers = loadedMembers
     }
     
     // MARK: - Load Weather
@@ -182,15 +190,19 @@ final class GameInfoViewModel: ObservableObject {
         
         do {
             
-            let updatedDetails =
-                try await gameService
-                    .fetchGameDetails(
-                        gameId: gameId
-                    )
+            let updatedDetails = try await gameService
+                .fetchGameDetails(
+                    gameId: gameId
+                )
+            let updatedMembers = try await gameService
+                .fetchGameMembers(
+                    gameId: gameId
+                )
             
             withAnimation(.spring) {
                 
                 details = updatedDetails
+                gameMembers = updatedMembers
             }
             
             AppLogger.success(
@@ -214,14 +226,18 @@ final class GameInfoViewModel: ObservableObject {
 
         do {
 
-            let updatedDetails =
-                try await gameService
-                    .fetchGameDetails(
-                        gameId: gameId
-                    )
+            let updatedDetails = try await gameService
+                .fetchGameDetails(
+                    gameId: gameId
+                )
+            let updatedMembers = try await gameService
+                .fetchGameMembers(
+                    gameId: gameId
+                )
 
             withAnimation(.spring) {
                 details = updatedDetails
+                gameMembers = updatedMembers
             }
 
         } catch {
@@ -311,9 +327,12 @@ final class GameInfoViewModel: ObservableObject {
 
             let updatedDetails = try await gameService
                 .fetchGameDetails(gameId: gameId)
+            let updatedMembers = try await gameService
+                .fetchGameMembers(gameId: gameId)
 
             withAnimation(.spring) {
                 details = updatedDetails
+                gameMembers = updatedMembers
             }
 
         } catch {

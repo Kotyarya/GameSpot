@@ -28,6 +28,10 @@ protocol GameInfoServing: AnyObject {
         gameId: UUID
     ) async throws -> GameDetails
 
+    func fetchGameMembers(
+        gameId: UUID
+    ) async throws -> [GameMember]
+
     func joinGame(
         gameId: UUID,
         team: Team
@@ -94,6 +98,18 @@ final class GameService: @unchecked Sendable {
                 params: params
             )
             .single()
+            .execute()
+            .value
+    }
+
+    func fetchGameMembers(
+        gameId: UUID
+    ) async throws -> [GameMember] {
+
+        try await client
+            .from("game_members")
+            .select("user_id, team")
+            .eq("game_id", value: gameId.uuidString)
             .execute()
             .value
     }

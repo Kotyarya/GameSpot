@@ -61,8 +61,10 @@ When a user emails the support address:
 ## Blocking behavior
 
 Blocking is private to the blocker. The blocked person is not notified. The
-blocker can manage the list from Profile → Blocked Users. Support should not
-reveal who blocked whom.
+blocker can manage the list from Profile → Settings → Blocked Users. A blocked
+participant remains in a game's roster as an anonymized, non-interactive row
+marked `Blocked`; their profile and other social content remain hidden. Support
+should not reveal who blocked whom.
 
 ## App Review evidence
 
@@ -70,9 +72,11 @@ For App Review, demonstrate this journey with two test accounts:
 
 1. Open a game and select another player under Players.
 2. Open Report User, select a reason, and submit.
-3. Return to the same profile, choose Block User, and confirm the player is
-   removed from the game's social sections.
-4. Open Profile → Blocked Users and unblock the player.
-5. Confirm the player appears again after refreshing the game.
+3. Return to the same profile, choose Block User, and confirm the player remains
+   in the game's roster as a non-interactive `Blocked player` row while their
+   profile, highlights, teams, voting, and MVP content are hidden.
+4. Open Profile → Settings → Blocked Users and unblock the player.
+5. Confirm the player's normal roster row and public profile are available again
+   after refreshing the game.
 
 The reviewer support contact is `gamespot.support@icloud.com`.

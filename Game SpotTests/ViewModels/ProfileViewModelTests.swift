@@ -187,6 +187,60 @@ final class ProfileViewModelTests: XCTestCase {
         XCTAssertNil(viewModel.avatarErrorMessage)
     }
 
+    func testPublicProfileLoadPublishesProfileAndStats() async {
+        let service = ProfileServiceStub()
+        let viewModel = PublicProfileViewModel(
+            service: service
+        )
+
+        await viewModel.load(
+            userId: TestFixtures.userId
+        )
+
+        XCTAssertEqual(
+            viewModel.profile?.id,
+            TestFixtures.userId
+        )
+        XCTAssertTrue(viewModel.stats.isEmpty)
+        XCTAssertFalse(viewModel.isLoading)
+        XCTAssertNil(viewModel.errorMessage)
+        XCTAssertEqual(service.profileCallCount, 1)
+        XCTAssertEqual(service.statsCallCount, 1)
+        XCTAssertEqual(service.matchesCallCount, 0)
+    }
+
+    func testPublicProfileLoadFailureCanRetry() async {
+        let service = ProfileServiceStub(
+            statsResults: [
+                .failure(ProfileTestError.failed),
+                .success([])
+            ]
+        )
+        let viewModel = PublicProfileViewModel(
+            service: service
+        )
+
+        await viewModel.load(
+            userId: TestFixtures.userId
+        )
+
+        XCTAssertNil(viewModel.profile)
+        XCTAssertNotNil(viewModel.errorMessage)
+        XCTAssertFalse(viewModel.isLoading)
+
+        await viewModel.load(
+            userId: TestFixtures.userId
+        )
+
+        XCTAssertEqual(
+            viewModel.profile?.id,
+            TestFixtures.userId
+        )
+        XCTAssertNil(viewModel.errorMessage)
+        XCTAssertEqual(service.profileCallCount, 2)
+        XCTAssertEqual(service.statsCallCount, 2)
+    }
+
     private func makeViewModel(
         service: (any ProfileFetching)? = nil,
         realtime: (any ProfileRealtimeSubscribing)? = nil,

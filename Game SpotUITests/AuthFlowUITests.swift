@@ -173,8 +173,14 @@ final class AuthFlowUITests: XCTestCase {
 
         profileTab.tap()
 
+        let settingsButton = app.descendants(matching: .any)[
+            "profile.settings"
+        ]
+        XCTAssertTrue(settingsButton.waitForExistence(timeout: 10))
+        settingsButton.tap()
+
         let privacyLink = app.descendants(matching: .any)[
-            "profile.privacyPolicy"
+            "settings.privacyPolicy"
         ]
 
         XCTAssertTrue(privacyLink.waitForExistence(timeout: 10))
@@ -236,13 +242,35 @@ final class AuthFlowUITests: XCTestCase {
 
         profileTab.tap()
 
-        let signOutButton = app.buttons["Sign Out"]
+        let settingsButton = app.descendants(matching: .any)[
+            "profile.settings"
+        ]
+
+        guard settingsButton.waitForExistence(timeout: 10) else {
+            return
+        }
+
+        settingsButton.tap()
+
+        let signOutButton = app.descendants(matching: .any)[
+            "settings.signOut"
+        ]
 
         guard signOutButton.waitForExistence(timeout: 10) else {
             return
         }
 
         signOutButton.tap()
+
+        let confirmSignOutButton = app.descendants(matching: .any)[
+            "settings.signOut.confirm"
+        ]
+
+        guard confirmSignOutButton.waitForExistence(timeout: 5) else {
+            return
+        }
+
+        confirmSignOutButton.tap()
         _ = signInButton.waitForExistence(timeout: 15)
     }
 

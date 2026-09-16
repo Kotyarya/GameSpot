@@ -12,6 +12,8 @@ struct GameInfoView: View {
     @EnvironmentObject var session: SessionManager
     @State private var livePulse = false
     @State private var blockedPlayerIds: Set<UUID> = []
+    @State private var isLoadingBlockedPlayers = true
+    @State private var blockedPlayersErrorMessage: String?
     
     let gameId: UUID
     
@@ -208,10 +210,40 @@ struct GameInfoView: View {
         )
     }
     
+    private var rosterPlayers: [Player] {
+
+        var players = details?.players ?? []
+        let loadedPlayerIds = Set(players.map(\.id))
+
+        for member in vm.gameMembers
+        where blockedPlayerIds.contains(member.userId)
+            && !loadedPlayerIds.contains(member.userId) {
+
+            players.append(
+                Player(
+                    id: member.userId,
+                    username: "Blocked player",
+                    avatarUrl: nil,
+                    team: member.team,
+                    rating: 0,
+                    gamesPlayed: 0,
+                    createdAt: .distantPast,
+                    isTopRated: false,
+                    isMostActive: false,
+                    isNewest: false,
+                    mvpVotesCount: 0,
+                    isVotedByCurrentUser: false
+                )
+            )
+        }
+
+        return players
+    }
+
     private var visiblePlayers: [Player] {
-        details?.players.filter {
+        rosterPlayers.filter {
             !blockedPlayerIds.contains($0.id)
-        } ?? []
+        }
     }
 
     private var teamAlpha: [Player] {
@@ -279,23 +311,49 @@ struct GameInfoView: View {
         _ player: Player
     ) -> some View {
 
-        HStack(spacing: 14) {
+        let isBlocked = blockedPlayerIds.contains(
+            player.id
+        )
 
-            avatarView(player)
+        return HStack(spacing: 14) {
+
+            if isBlocked {
+                placeholderAvatar
+            } else {
+                avatarView(player)
+            }
 
             VStack(alignment: .leading, spacing: 3) {
 
-                Text(player.username)
+                Text(
+                    isBlocked
+                    ? "Blocked player"
+                    : player.username
+                )
                     .font(.headline)
 
-                Text("\(player.rating) rating")
+                if isBlocked {
+                    Label(
+                        "Blocked",
+                        systemImage: "nosign"
+                    )
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                } else {
+                    Text("\(player.rating) rating")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Spacer()
 
-            if player.id == session.user?.id {
+            if isBlocked {
+                Image(systemName: "lock.fill")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+            } else if player.id == session.user?.id {
                 Text("You")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -314,6 +372,35 @@ struct GameInfoView: View {
                 style: .continuous
             )
         )
+    }
+
+    private func loadBlockedPlayerIds() async {
+
+        isLoadingBlockedPlayers = true
+        blockedPlayersErrorMessage = nil
+
+        defer {
+            isLoadingBlockedPlayers = false
+        }
+
+        do {
+            let blockedUsers = try await UserSafetyService
+                .shared
+                .fetchBlockedUsers()
+
+            blockedPlayerIds = Set(
+                blockedUsers.map(\.id)
+            )
+
+        } catch {
+            AppLogger.error(
+                "GameInfoView blocked users load failed",
+                error: error
+            )
+
+            blockedPlayersErrorMessage =
+                "Couldn’t apply your blocked-user settings. Try again before viewing this game."
+        }
     }
     
     private func highlightPlayer(
@@ -366,10 +453,26 @@ struct GameInfoView: View {
 
         Group {
         
-            if vm.isLoading && vm.details == nil {
+            if isLoadingBlockedPlayers
+                || (vm.isLoading && vm.details == nil) {
                 
                 LoadingView()
                     .accessibilityIdentifier("gameDetails.loading")
+
+            } else if let blockedPlayersErrorMessage {
+
+                ContentStateView(
+                    title: "Couldn’t Load Privacy Settings",
+                    message: blockedPlayersErrorMessage,
+                    systemImage: "hand.raised.slash",
+                    accessibilityIdentifier:
+                        "gameDetails.blockedPlayers.error",
+                    actionTitle: "Try Again"
+                ) {
+                    Task {
+                        await loadBlockedPlayerIds()
+                    }
+                }
                 
             } else if let details {
                 
@@ -784,7 +887,7 @@ struct GameInfoView: View {
 
                             // MARK: Players
 
-                            if !visiblePlayers.isEmpty {
+                            if !rosterPlayers.isEmpty {
 
                                 VStack(alignment: .leading, spacing: 12) {
 
@@ -792,11 +895,20 @@ struct GameInfoView: View {
                                         .font(.largeTitle)
                                         .bold()
 
-                                    ForEach(visiblePlayers) { player in
+                                    ForEach(rosterPlayers) { player in
 
                                         if player.id == session.user?.id {
 
                                             playerListRow(player)
+
+                                        } else if blockedPlayerIds.contains(
+                                            player.id
+                                        ) {
+
+                                            playerListRow(player)
+                                                .accessibilityIdentifier(
+                                                    "gameDetails.blockedPlayer.\(player.id.uuidString)"
+                                                )
 
                                         } else {
 
@@ -1153,7 +1265,16 @@ struct GameInfoView: View {
             }
         }
         .task {
-            await vm.load(gameId: gameId)
+            async let detailsLoad: Void =
+                vm.load(gameId: gameId)
+
+            async let blocksLoad: Void =
+                loadBlockedPlayerIds()
+
+            _ = await (
+                detailsLoad,
+                blocksLoad
+            )
         }
         .fullScreenCover(isPresented: $showJoinSheet) {
 

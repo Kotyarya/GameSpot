@@ -6,7 +6,10 @@ struct PublicProfileView: View {
     let profile: PublicProfileSummary
     let onBlocked: @MainActor () -> Void
 
-    @StateObject private var viewModel =
+    @StateObject private var profileViewModel =
+        PublicProfileViewModel()
+
+    @StateObject private var safetyViewModel =
         UserSafetyViewModel()
 
     @State private var showsReportSheet = false
@@ -26,24 +29,94 @@ struct PublicProfileView: View {
 
     var body: some View {
 
-        ScrollView {
+        Group {
+            if profileViewModel.isLoading,
+               profileViewModel.profile == nil {
 
-            VStack(spacing: 28) {
+                LoadingView()
+                    .accessibilityIdentifier(
+                        "publicProfile.loading"
+                    )
 
-                profileHeader
+            } else if let errorMessage =
+                        profileViewModel.errorMessage,
+                      profileViewModel.profile == nil {
 
-                statisticsSection
+                ContentStateView(
+                    title: "Couldn’t Load Player",
+                    message: errorMessage,
+                    systemImage:
+                        "person.crop.circle.badge.exclamationmark",
+                    accessibilityIdentifier:
+                        "publicProfile.error",
+                    actionTitle: "Try Again"
+                ) {
+                    Task {
+                        await profileViewModel.load(
+                            userId: profile.id
+                        )
+                    }
+                }
 
-                safetySection
+            } else if let loadedProfile =
+                        profileViewModel.profile {
+
+                profileContent(loadedProfile)
             }
-            .padding()
         }
-        .navigationTitle("Player")
+        .navigationTitle(profile.username)
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            await profileViewModel.load(
+                userId: profile.id
+            )
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button {
+                        showsReportSheet = true
+                    } label: {
+                        Label(
+                            "Report User",
+                            systemImage:
+                                "exclamationmark.bubble"
+                        )
+                    }
+                    .accessibilityIdentifier(
+                        "publicProfile.report"
+                    )
+
+                    Button(role: .destructive) {
+                        showsBlockConfirmation = true
+                    } label: {
+                        Label(
+                            safetyViewModel.isChangingBlock
+                            ? "Blocking…"
+                            : "Block User",
+                            systemImage:
+                                "person.crop.circle.badge.xmark"
+                        )
+                    }
+                    .disabled(
+                        safetyViewModel.isChangingBlock
+                    )
+                    .accessibilityIdentifier(
+                        "publicProfile.block"
+                    )
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .accessibilityLabel("Player Actions")
+                .accessibilityIdentifier(
+                    "publicProfile.actions"
+                )
+            }
+        }
         .sheet(
             isPresented: $showsReportSheet,
             onDismiss: {
-                viewModel.clearMessages()
+                safetyViewModel.clearMessages()
 
                 if reportWasSubmitted {
                     reportWasSubmitted = false
@@ -53,7 +126,7 @@ struct PublicProfileView: View {
         ) {
             ReportUserSheet(
                 profile: profile,
-                viewModel: viewModel,
+                viewModel: safetyViewModel,
                 onSubmitted: {
                     reportWasSubmitted = true
                 }
@@ -73,251 +146,118 @@ struct PublicProfileView: View {
                 }
             }
 
-            Button(
-                "Cancel",
-                role: .cancel
-            ) {}
+            Button("Cancel", role: .cancel) {}
         } message: {
             Text(
-                "You won’t see this user in GameSpot social areas. You can unblock them later from your profile."
+                "Their roster position stays visible, but their profile and other social content will be hidden. You can unblock them later in Settings."
             )
         }
-        .alert(
-            item: $presentedAlert
-        ) { alert in
+        .alert(item: $presentedAlert) { alert in
             switch alert {
-
             case .reportSubmitted:
                 Alert(
                     title: Text("Report Submitted"),
                     message: Text(
                         "Thank you for helping keep GameSpot safe. The report will be reviewed."
                     ),
-                    dismissButton: .default(
-                        Text("OK")
-                    )
+                    dismissButton: .default(Text("OK"))
                 )
 
             case .error(let message):
                 Alert(
                     title: Text("Something Went Wrong"),
                     message: Text(message),
-                    dismissButton: .default(
-                        Text("OK")
-                    )
+                    dismissButton: .default(Text("OK"))
                 )
             }
         }
     }
 
-    // MARK: - Header
-
-    private var profileHeader: some View {
-
-        VStack(spacing: 14) {
-
-            avatarView
-
-            Text(profile.username)
-                .font(.title2)
-                .bold()
-                .fontDesign(.rounded)
-                .multilineTextAlignment(.center)
-
-            Label(
-                "\(profile.rating) rating",
-                systemImage: "star.fill"
-            )
-            .font(.headline)
-            .foregroundStyle(Color("AccentColor"))
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
-    }
-
-    private var avatarView: some View {
-
-        AsyncImage(
-            url: URL(
-                string: profile.avatarUrl ?? ""
-            )
-        ) { phase in
-
-            switch phase {
-
-            case .success(let image):
-                image
-                    .resizable()
-                    .scaledToFill()
-
-            default:
-                Image(
-                    systemName: "person.fill"
-                )
-                .resizable()
-                .scaledToFit()
-                .padding(28)
-                .foregroundStyle(.white)
-                .background(
-                    Color("AccentColor")
-                )
-            }
-        }
-        .frame(
-            width: 112,
-            height: 112
-        )
-        .background(
-            Color("AccentColor")
-        )
-        .clipShape(Circle())
-        .overlay {
-            Circle()
-                .stroke(
-                    Color("AccentColor"),
-                    lineWidth: 3
-                )
-        }
-        .accessibilityLabel(
-            "\(profile.username) profile photo"
-        )
-    }
-
-    // MARK: - Statistics
-
-    private var statisticsSection: some View {
-
-        VStack(alignment: .leading, spacing: 14) {
-
-            Text("Player Statistics")
-                .font(.headline)
-
-            HStack(spacing: 12) {
-
-                statisticCard(
-                    title: "Rating",
-                    value: "\(profile.rating)",
-                    icon: "star.fill"
-                )
-
-                if let gamesPlayed = profile.gamesPlayed {
-                    statisticCard(
-                        title: "Games",
-                        value: "\(gamesPlayed)",
-                        icon: "figure.run"
-                    )
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func statisticCard(
-        title: String,
-        value: String,
-        icon: String
+    private func profileContent(
+        _ loadedProfile: Profile
     ) -> some View {
 
-        VStack(spacing: 8) {
+        let username =
+            loadedProfile.username ?? profile.username
 
-            Image(systemName: icon)
-                .font(.title2)
-                .foregroundStyle(
-                    Color("AccentColor")
-                )
-
-            Text(value)
-                .font(.title3)
-                .bold()
-
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding()
-        .background(
-            Color.secondary.opacity(0.1)
+        let rank = RankHelper.getRank(
+            rating: loadedProfile.rating
         )
-        .clipShape(
-            RoundedRectangle(
-                cornerRadius: 18
-            )
-        )
-    }
 
-    // MARK: - Safety
+        return ScrollView {
 
-    private var safetySection: some View {
+            VStack(spacing: 32) {
 
-        VStack(alignment: .leading, spacing: 12) {
-
-            Text("Safety")
-                .font(.headline)
-
-            Button {
-                showsReportSheet = true
-            } label: {
-                Label(
-                    "Report User",
-                    systemImage: "exclamationmark.bubble"
-                )
-                .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            .accessibilityIdentifier(
-                "publicProfile.report"
-            )
-
-            Button(
-                role: .destructive
-            ) {
-                showsBlockConfirmation = true
-            } label: {
-                HStack {
-
-                    if viewModel.isChangingBlock {
-                        ProgressView()
-                    } else {
-                        Image(
-                            systemName: "person.crop.circle.badge.xmark"
-                        )
-                    }
-
-                    Text(
-                        viewModel.isChangingBlock
-                        ? "Blocking…"
-                        : "Block User"
+                ProfileHeroView(
+                    username: username,
+                    rating: loadedProfile.rating,
+                    favoriteSportIcon:
+                        loadedProfile.favoriteSport?
+                            .type?
+                            .iconName
+                        ?? "trophy.fill"
+                ) {
+                    ProfileAvatarView(
+                        username: username,
+                        avatarURL: loadedProfile.avatarUrl,
+                        rank: rank
                     )
                 }
-                .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            .disabled(
-                viewModel.isChangingBlock
-            )
-            .accessibilityIdentifier(
-                "publicProfile.block"
-            )
-        }
-    }
 
-    // MARK: - Actions
+                VStack(spacing: 32) {
+
+                    ProfileSummaryCard(
+                        rating: loadedProfile.rating,
+                        gamesPlayed:
+                            loadedProfile.gamesPlayed,
+                        mvpCount: loadedProfile.mvpCount,
+                        perfPoints:
+                            loadedProfile.perfPoints
+                    )
+
+                    if profileViewModel.stats.isEmpty {
+                        ContentStateView(
+                            title: "No Sport Activity Yet",
+                            message:
+                                "This player hasn’t built sport stats yet.",
+                            systemImage: "figure.run",
+                            accessibilityIdentifier:
+                                "publicProfile.stats.empty"
+                        )
+                        .frame(minHeight: 220)
+                        .glassEffect(
+                            .regular.tint(.clear),
+                            in: RoundedRectangle(
+                                cornerRadius: 24,
+                                style: .continuous
+                            )
+                        )
+
+                    } else {
+                        ProfileSportStatsSection(
+                            stats: profileViewModel.stats
+                        )
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+        }
+        .ignoresSafeArea()
+        .contentMargins(.bottom, 80)
+        .accessibilityIdentifier("publicProfile.content")
+    }
 
     private func blockUser() async {
 
-        let succeeded =
-            await viewModel.block(
-                userId: profile.id
-            )
+        let succeeded = await safetyViewModel.block(
+            userId: profile.id
+        )
 
         guard succeeded else {
-
             presentedAlert = .error(
-                viewModel.errorMessage
+                safetyViewModel.errorMessage
                 ?? "Couldn’t block this user. Please try again."
             )
-
             return
         }
 
@@ -325,8 +265,6 @@ struct PublicProfileView: View {
         dismiss()
     }
 }
-
-// MARK: - Report Sheet
 
 @MainActor
 private struct ReportUserSheet: View {
@@ -360,9 +298,7 @@ private struct ReportUserSheet: View {
                         "Reason",
                         selection: $viewModel.selectedReason
                     ) {
-                        ForEach(
-                            ReportReason.allCases
-                        ) { reason in
+                        ForEach(ReportReason.allCases) { reason in
                             Text(reason.title)
                                 .tag(reason)
                         }
@@ -376,7 +312,6 @@ private struct ReportUserSheet: View {
                 }
 
                 Section {
-
                     TextEditor(
                         text: $viewModel.reportDetails
                     )
@@ -398,7 +333,6 @@ private struct ReportUserSheet: View {
                         maxWidth: .infinity,
                         alignment: .trailing
                     )
-
                 } header: {
                     Text("Additional Details")
                 } footer: {
@@ -407,41 +341,31 @@ private struct ReportUserSheet: View {
                     )
                 }
 
-                if let errorMessage =
-                    viewModel.errorMessage {
-
+                if let errorMessage = viewModel.errorMessage {
                     Section {
                         Label(
                             errorMessage,
-                            systemImage: "exclamationmark.triangle.fill"
+                            systemImage:
+                                "exclamationmark.triangle.fill"
                         )
                         .foregroundStyle(.red)
                     }
                 }
             }
-            .navigationTitle(
-                "Report \(profile.username)"
-            )
+            .navigationTitle("Report \(profile.username)")
             .navigationBarTitleDisplayMode(.inline)
             .interactiveDismissDisabled(
                 viewModel.isSubmittingReport
             )
             .toolbar {
-
-                ToolbarItem(
-                    placement: .cancellationAction
-                ) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .disabled(
-                        viewModel.isSubmittingReport
-                    )
+                    .disabled(viewModel.isSubmittingReport)
                 }
 
-                ToolbarItem(
-                    placement: .confirmationAction
-                ) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button {
                         Task {
                             await submitReport()
@@ -457,24 +381,18 @@ private struct ReportUserSheet: View {
                         viewModel.isSubmittingReport
                         || viewModel.reportDetails.count > 500
                     )
-                    .accessibilityIdentifier(
-                        "report.submit"
-                    )
+                    .accessibilityIdentifier("report.submit")
                 }
             }
         }
-        .presentationDetents([
-            .medium,
-            .large
-        ])
+        .presentationDetents([.medium, .large])
     }
 
     private func submitReport() async {
 
-        let succeeded =
-            await viewModel.submitReport(
-                userId: profile.id
-            )
+        let succeeded = await viewModel.submitReport(
+            userId: profile.id
+        )
 
         guard succeeded else {
             return
@@ -485,21 +403,16 @@ private struct ReportUserSheet: View {
     }
 }
 
-// MARK: - Alert
-
-private enum PublicProfileAlert:
-    Identifiable {
-
+private enum PublicProfileAlert: Identifiable {
     case reportSubmitted
     case error(String)
 
     var id: String {
         switch self {
         case .reportSubmitted:
-            return "reportSubmitted"
-
+            "reportSubmitted"
         case .error(let message):
-            return "error-\(message)"
+            "error-\(message)"
         }
     }
 }

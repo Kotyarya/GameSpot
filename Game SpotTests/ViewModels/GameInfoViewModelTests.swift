@@ -17,7 +17,14 @@ final class GameInfoViewModelTests: XCTestCase {
     func testLoadPublishesDetailsWeatherAndSubscribes() async {
         let startsAt = Date(timeIntervalSince1970: 1_800_000_000)
         let details = TestFixtures.gameDetails(startsAt: startsAt)
-        let service = GameInfoServiceStub(detailsResult: .success(details))
+        let member = GameMember(
+            userId: TestFixtures.userId,
+            team: .alpha
+        )
+        let service = GameInfoServiceStub(
+            detailsResult: .success(details),
+            membersResult: .success([member])
+        )
         let weatherService = WeatherServiceStub(
             result: .success(
                 Weather(temperature: 18, windSpeed: 7, rainChance: 20)
@@ -33,6 +40,7 @@ final class GameInfoViewModelTests: XCTestCase {
         await viewModel.load(gameId: TestFixtures.gameId)
 
         XCTAssertEqual(viewModel.details?.id, TestFixtures.gameId)
+        XCTAssertEqual(viewModel.gameMembers, [member])
         XCTAssertEqual(viewModel.weather?.temperature, 18)
         XCTAssertEqual(weatherService.receivedLatitude, 50.45)
         XCTAssertEqual(weatherService.receivedLongitude, 30.52)
@@ -272,6 +280,7 @@ final class GameInfoViewModelTests: XCTestCase {
 private class GameInfoServiceStub: GameInfoServing {
 
     private let detailsResult: Result<GameDetails, Error>
+    private let membersResult: Result<[GameMember], Error>
     private let joinError: Error?
     private let leaveError: Error?
 
@@ -287,11 +296,13 @@ private class GameInfoServiceStub: GameInfoServing {
                 startsAt: Date(timeIntervalSince1970: 1_800_000_000)
             )
         ),
+        membersResult: Result<[GameMember], Error> = .success([]),
         joinError: Error? = nil,
         leaveError: Error? = nil
     ) {
 
         self.detailsResult = detailsResult
+        self.membersResult = membersResult
         self.joinError = joinError
         self.leaveError = leaveError
     }
@@ -302,6 +313,13 @@ private class GameInfoServiceStub: GameInfoServing {
 
         fetchCallCount += 1
         return try detailsResult.get()
+    }
+
+    func fetchGameMembers(
+        gameId: UUID
+    ) async throws -> [GameMember] {
+
+        try membersResult.get()
     }
 
     func joinGame(
