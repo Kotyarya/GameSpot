@@ -8,12 +8,30 @@
 import SwiftUI
 internal import Auth
 
+@MainActor
 struct MainTabView: View {
 
     // MARK: - Environment
 
     @EnvironmentObject private var router:
         AppRouter
+
+    private let mapViewModel: MapViewModel
+    private let parkViewModel: ParkDetailsViewModel
+    private let gamesViewModel: GamesViewModel
+    private let profileViewModel: ProfileViewModel
+
+    init(
+        mapViewModel: MapViewModel = MapViewModel(),
+        parkViewModel: ParkDetailsViewModel = ParkDetailsViewModel(),
+        gamesViewModel: GamesViewModel = GamesViewModel(),
+        profileViewModel: ProfileViewModel = ProfileViewModel()
+    ) {
+        self.mapViewModel = mapViewModel
+        self.parkViewModel = parkViewModel
+        self.gamesViewModel = gamesViewModel
+        self.profileViewModel = profileViewModel
+    }
 
     // MARK: - Body
 
@@ -43,7 +61,10 @@ private extension MainTabView {
             path: $router.mapPath
         ) {
 
-            MapView()
+            MapView(
+                viewModel: mapViewModel,
+                parkViewModel: parkViewModel
+            )
                 .navigationDestination(
                     for: Route.self,
                     destination: destination
@@ -66,7 +87,8 @@ private extension MainTabView {
         ) {
 
             GamesView(
-                mode: .myGames
+                mode: .myGames,
+                viewModel: gamesViewModel
             )
             .navigationDestination(
                 for: Route.self,
@@ -87,7 +109,7 @@ private extension MainTabView {
 
         NavigationStack {
 
-            ProfileView()
+            ProfileView(viewModel: profileViewModel)
         }
         .tabItem {
 

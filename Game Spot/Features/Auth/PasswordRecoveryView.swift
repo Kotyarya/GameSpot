@@ -269,15 +269,3 @@ struct PasswordRecoveryView: View {
         }
     }
 }
-
-#Preview {
-    PasswordRecoveryView()
-        .environmentObject(
-            SessionManager(restoreSessionOnInit: false)
-        )
-        .environmentObject(
-            AuthLinkCoordinator(
-                initialState: .passwordRecovery
-            )
-        )
-}

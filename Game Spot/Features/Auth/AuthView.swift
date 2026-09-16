@@ -4,8 +4,13 @@ struct AuthView: View {
 
     // MARK: - View Model
 
-    @StateObject private var vm =
-        AuthViewModel()
+    @StateObject private var vm: AuthViewModel
+
+    init(
+        viewModel: AuthViewModel = AuthViewModel()
+    ) {
+        _vm = StateObject(wrappedValue: viewModel)
+    }
 
     // MARK: - Environment
 
@@ -711,12 +716,4 @@ private extension AuthView {
             }
         }
     }
-}
-
-#Preview {
-    AuthView()
-        .environmentObject(
-            SessionManager(restoreSessionOnInit: false)
-        )
-        .environmentObject(AuthLinkCoordinator())
 }

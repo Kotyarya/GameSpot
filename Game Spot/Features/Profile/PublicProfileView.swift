@@ -6,11 +6,9 @@ struct PublicProfileView: View {
     let profile: PublicProfileSummary
     let onBlocked: @MainActor () -> Void
 
-    @StateObject private var profileViewModel =
-        PublicProfileViewModel()
+    @StateObject private var profileViewModel: PublicProfileViewModel
 
-    @StateObject private var safetyViewModel =
-        UserSafetyViewModel()
+    @StateObject private var safetyViewModel: UserSafetyViewModel
 
     @State private var showsReportSheet = false
     @State private var showsBlockConfirmation = false
@@ -21,10 +19,14 @@ struct PublicProfileView: View {
 
     init(
         profile: PublicProfileSummary,
-        onBlocked: @escaping @MainActor () -> Void = {}
+        onBlocked: @escaping @MainActor () -> Void = {},
+        profileViewModel: PublicProfileViewModel = PublicProfileViewModel(),
+        safetyViewModel: UserSafetyViewModel = UserSafetyViewModel()
     ) {
         self.profile = profile
         self.onBlocked = onBlocked
+        _profileViewModel = StateObject(wrappedValue: profileViewModel)
+        _safetyViewModel = StateObject(wrappedValue: safetyViewModel)
     }
 
     var body: some View {

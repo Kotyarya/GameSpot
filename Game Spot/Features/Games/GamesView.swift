@@ -21,18 +21,19 @@ struct GamesView: View {
     
     // MARK: - State
     
-    @StateObject private var viewModel =
-        GamesViewModel()
+    @StateObject private var viewModel: GamesViewModel
     
     // MARK: - Init
     
     init(
         mode: GamesMode,
-        parkName: String? = nil
+        parkName: String? = nil,
+        viewModel: GamesViewModel = GamesViewModel()
     ) {
         
         self.mode = mode
         self.parkName = parkName
+        _viewModel = StateObject(wrappedValue: viewModel)
     }
     
     // MARK: - Navigation Title

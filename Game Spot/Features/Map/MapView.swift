@@ -5,11 +5,17 @@ struct MapView: View {
 
     // MARK: - View Models
 
-    @StateObject private var viewModel =
-        MapViewModel()
+    @StateObject private var viewModel: MapViewModel
 
-    @StateObject private var parkViewModel =
-        ParkDetailsViewModel()
+    @StateObject private var parkViewModel: ParkDetailsViewModel
+
+    init(
+        viewModel: MapViewModel = MapViewModel(),
+        parkViewModel: ParkDetailsViewModel = ParkDetailsViewModel()
+    ) {
+        _viewModel = StateObject(wrappedValue: viewModel)
+        _parkViewModel = StateObject(wrappedValue: parkViewModel)
+    }
 
     // MARK: - Map State
 
@@ -230,9 +236,4 @@ private extension MapView {
             sheetDetent = .height(90)
         }
     }
-}
-
-#Preview {
-
-    MapView()
 }

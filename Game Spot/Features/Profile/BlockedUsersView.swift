@@ -3,8 +3,13 @@ import SwiftUI
 @MainActor
 struct BlockedUsersView: View {
 
-    @StateObject private var viewModel =
-        BlockedUsersViewModel()
+    @StateObject private var viewModel: BlockedUsersViewModel
+
+    init(
+        viewModel: BlockedUsersViewModel = BlockedUsersViewModel()
+    ) {
+        _viewModel = StateObject(wrappedValue: viewModel)
+    }
 
     var body: some View {
 

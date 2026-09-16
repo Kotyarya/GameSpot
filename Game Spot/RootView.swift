@@ -130,11 +130,3 @@ struct RootView: View {
         )
     }
 }
-
-#Preview {
-    RootView()
-        .environmentObject(
-            SessionManager(restoreSessionOnInit: false)
-        )
-        .environmentObject(AuthLinkCoordinator())
-}

@@ -172,7 +172,3 @@ struct PasswordResetRequestView: View {
         .accessibilityIdentifier("passwordReset.request.sent")
     }
 }
-
-#Preview {
-    PasswordResetRequestView()
-}

@@ -4,7 +4,7 @@ internal import Auth
 
 struct GameInfoView: View {
     
-    @StateObject private var vm: GameInfoViewModel = GameInfoViewModel()
+    @StateObject private var vm: GameInfoViewModel
     
     @State private var selectedItem: MKMapItem?
     
@@ -16,6 +16,18 @@ struct GameInfoView: View {
     @State private var blockedPlayersErrorMessage: String?
     
     let gameId: UUID
+
+    private let userSafetyService: any UserSafetyServing
+
+    init(
+        gameId: UUID,
+        viewModel: GameInfoViewModel = GameInfoViewModel(),
+        userSafetyService: any UserSafetyServing = UserSafetyService.shared
+    ) {
+        self.gameId = gameId
+        self.userSafetyService = userSafetyService
+        _vm = StateObject(wrappedValue: viewModel)
+    }
     
     @State private var showMVPInfo = false
     
@@ -384,8 +396,7 @@ struct GameInfoView: View {
         }
 
         do {
-            let blockedUsers = try await UserSafetyService
-                .shared
+            let blockedUsers = try await userSafetyService
                 .fetchBlockedUsers()
 
             blockedPlayerIds = Set(

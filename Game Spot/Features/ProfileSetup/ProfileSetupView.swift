@@ -6,8 +6,13 @@ struct ProfileSetupView: View {
 
     // MARK: - View Model
 
-    @StateObject private var viewModel =
-        ProfileSetupViewModel()
+    @StateObject private var viewModel: ProfileSetupViewModel
+
+    init(
+        viewModel: ProfileSetupViewModel = ProfileSetupViewModel()
+    ) {
+        _viewModel = StateObject(wrappedValue: viewModel)
+    }
 
     // MARK: - Environment
 
@@ -580,8 +585,4 @@ struct ProfileSetupView: View {
 private enum AvatarSelectionError: Error {
 
     case invalidImage
-}
-
-#Preview {
-    ProfileSetupView()
 }

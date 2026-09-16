@@ -11,7 +11,17 @@ struct CreateGameView: View {
     // MARK: - View Model
     
     @StateObject
-    private var vm = CreateGameViewModel()
+    private var vm: CreateGameViewModel
+
+    init(
+        park: Park,
+        sports: [Sport],
+        viewModel: CreateGameViewModel = CreateGameViewModel()
+    ) {
+        self.park = park
+        self.sports = sports
+        _vm = StateObject(wrappedValue: viewModel)
+    }
     
     // MARK: - Environment
     

@@ -7,8 +7,13 @@ struct ProfileView: View {
 
     // MARK: - View Model
 
-    @StateObject private var viewModel =
-        ProfileViewModel()
+    @StateObject private var viewModel: ProfileViewModel
+
+    init(
+        viewModel: ProfileViewModel = ProfileViewModel()
+    ) {
+        _viewModel = StateObject(wrappedValue: viewModel)
+    }
 
     @State private var selectedAvatarItem: PhotosPickerItem?
     @State private var showsRemoveAvatarConfirmation = false

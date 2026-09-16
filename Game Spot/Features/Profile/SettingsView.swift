@@ -3,8 +3,17 @@ import SwiftUI
 @MainActor
 struct SettingsView: View {
 
-    @StateObject private var accountDeletionViewModel =
-        AccountDeletionViewModel()
+    @StateObject private var accountDeletionViewModel:
+        AccountDeletionViewModel
+
+    init(
+        accountDeletionViewModel: AccountDeletionViewModel =
+            AccountDeletionViewModel()
+    ) {
+        _accountDeletionViewModel = StateObject(
+            wrappedValue: accountDeletionViewModel
+        )
+    }
 
     @EnvironmentObject private var session:
         SessionManager
