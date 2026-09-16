@@ -15,6 +15,12 @@ struct GameCard: View {
 
     @EnvironmentObject private var router: AppRouter
 
+    @ScaledMetric(relativeTo: .headline)
+    private var finishedSportIconSize: CGFloat = 38
+
+    @ScaledMetric(relativeTo: .title2)
+    private var regularSportIconSize: CGFloat = 64
+
     // MARK: - State
 
     @State private var pulse = false
@@ -61,9 +67,17 @@ struct GameCard: View {
 
     private func foregroundColor() -> Color {
 
-        state != .open
-        ? Color("AccentColor")
-        : .white
+        switch state {
+
+        case .open:
+            return .white
+
+        case .finished:
+            return .primary.opacity(0.72)
+
+        case .full, .live:
+            return Color("AccentColor")
+        }
     }
 
     private var badgeForeground: Color {
@@ -80,7 +94,7 @@ struct GameCard: View {
             return .white
 
         case .finished:
-            return .white.opacity(0.6)
+            return .primary.opacity(0.8)
         }
     }
 
@@ -98,7 +112,7 @@ struct GameCard: View {
             return Color("AccentColor")
 
         case .finished:
-            return Color("AccentColor")
+            return .primary.opacity(0.12)
         }
     }
 
@@ -177,7 +191,7 @@ struct GameCard: View {
 
         } label: {
 
-            HStack {
+            HStack(spacing: 12) {
 
                 contentSection
 
@@ -185,14 +199,12 @@ struct GameCard: View {
 
                 sportSection
             }
-            .padding(.vertical, 12)
-            .padding(.horizontal, 8)
+            .padding(
+                .vertical,
+                state == .finished ? 7 : 12
+            )
+            .padding(.horizontal, 10)
         }
-        .opacity(
-            state == .finished
-            ? 0.4
-            : 1
-        )
         .frame(maxWidth: .infinity)
         .buttonStyle(.glassProminent)
         .tint(
@@ -202,7 +214,12 @@ struct GameCard: View {
                 )
         )
         .buttonBorderShape(
-            .roundedRectangle(radius: 24)
+            .roundedRectangle(
+                radius: state == .finished ? 18 : 24
+            )
+        )
+        .accessibilityIdentifier(
+            "gameCard.\(game.id.uuidString)"
         )
     }
 
@@ -212,7 +229,7 @@ struct GameCard: View {
 
         VStack(
             alignment: .leading,
-            spacing: 4
+            spacing: state == .finished ? 2 : 4
         ) {
 
             titleSection
@@ -230,7 +247,11 @@ struct GameCard: View {
         Text(
             game.sport.name.capitalized
         )
-        .font(.title2)
+        .font(
+            state == .finished
+            ? .headline
+            : .title2
+        )
         .bold()
         .foregroundStyle(
             foregroundColor()
@@ -250,7 +271,11 @@ struct GameCard: View {
 
             Text(timeText)
         }
-        .font(.headline)
+        .font(
+            state == .finished
+            ? .subheadline
+            : .headline
+        )
         .bold()
         .foregroundStyle(
             foregroundColor()
@@ -267,7 +292,11 @@ struct GameCard: View {
 
             statusBadge
         }
-        .font(.headline)
+        .font(
+            state == .finished
+            ? .subheadline
+            : .headline
+        )
         .bold()
         .foregroundStyle(
             foregroundColor()
@@ -347,7 +376,13 @@ struct GameCard: View {
     private var sportSection: some View {
 
         Image(systemName: sportIcon)
-            .font(.system(size: 64))
+            .font(
+                .system(
+                    size: state == .finished
+                    ? finishedSportIconSize
+                    : regularSportIconSize
+                )
+            )
             .foregroundStyle(
                 foregroundColor()
             )

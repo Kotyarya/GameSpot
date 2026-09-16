@@ -49,10 +49,17 @@ struct ContentStateView: View {
             if let actionTitle,
                let action {
 
-                Button(actionTitle) {
+                Button() {
                     action()
+                } label : {
+                        Text(actionTitle)
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                            .frame(width: 250)
+                            .padding(.vertical, 10)
                 }
-                .buttonStyle(.borderedProminent)
+                .frame(maxWidth: .infinity)
+                .buttonStyle(.glassProminent)
                 .accessibilityIdentifier(
                     "\(accessibilityIdentifier).action"
                 )

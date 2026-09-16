@@ -178,7 +178,40 @@ struct LoadingView: View {
     }
 }
 
+struct NativeLoadingView: View {
+
+    let title: String
+
+    var body: some View {
+
+        VStack(spacing: 12) {
+
+            ProgressView()
+                .controlSize(.regular)
+                .tint(.gray)
+                .accessibilityLabel(title)
+                .accessibilityIdentifier(
+                    "nativeLoading.progress"
+                )
+
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+        }
+        .frame(
+            maxWidth: .infinity,
+            maxHeight: .infinity
+        )
+    }
+}
+
 #Preview {
 
     LoadingView()
+}
+
+#Preview("Native Loading") {
+
+    NativeLoadingView(title: "Loading Profile")
 }

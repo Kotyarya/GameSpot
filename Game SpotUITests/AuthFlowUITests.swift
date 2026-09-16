@@ -45,6 +45,12 @@ final class AuthFlowUITests: XCTestCase {
     }
 
     func testAuthScreenCanSwitchToSignUpMode() throws {
+        let signInButton = app.buttons["Sign In"]
+        XCTAssertTrue(
+            signInButton.waitForExistence(timeout: 15)
+        )
+        let signInWidth = signInButton.frame.width
+
         let signUpLink = app.staticTexts["Sign Up"]
         XCTAssertTrue(
             signUpLink.waitForExistence(timeout: 15)
@@ -53,8 +59,19 @@ final class AuthFlowUITests: XCTestCase {
         signUpLink.tap()
 
         let createAccountButton = app.buttons["Create Account"]
+        if !createAccountButton.waitForExistence(timeout: 2) {
+            app.swipeUp()
+        }
         XCTAssertTrue(
             createAccountButton.waitForExistence(timeout: 5)
+        )
+        XCTAssertGreaterThanOrEqual(
+            createAccountButton.frame.height,
+            44
+        )
+        XCTAssertLessThan(
+            createAccountButton.frame.width,
+            signInWidth
         )
     }
 

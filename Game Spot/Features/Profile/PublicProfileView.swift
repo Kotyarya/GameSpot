@@ -33,7 +33,9 @@ struct PublicProfileView: View {
             if profileViewModel.isLoading,
                profileViewModel.profile == nil {
 
-                LoadingView()
+                NativeLoadingView(
+                    title: "Loading Player"
+                )
                     .accessibilityIdentifier(
                         "publicProfile.loading"
                     )

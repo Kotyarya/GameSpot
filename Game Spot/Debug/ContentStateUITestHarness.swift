@@ -6,6 +6,8 @@ enum ContentStateUITestScenario: String {
 
     case error
     case slow
+    case nativeLoading
+    case gameCards
 
     static var current: ContentStateUITestScenario? {
         let prefix = "--ui-test-content-state="
@@ -34,6 +36,8 @@ struct ContentStateUITestHarness: View {
 
     @State private var retryCount = 0
 
+    @StateObject private var router = AppRouter()
+
     init(
         scenario: ContentStateUITestScenario
     ) {
@@ -44,6 +48,38 @@ struct ContentStateUITestHarness: View {
     }
 
     var body: some View {
+
+        Group {
+
+            if scenario == .nativeLoading {
+
+                NativeLoadingView(
+                    title: "Loading Profile"
+                )
+
+            } else if scenario == .gameCards {
+
+                gameCards
+
+            } else {
+
+                contentStates
+            }
+        }
+        .task {
+            guard scenario == .slow else {
+                return
+            }
+
+            try? await Task.sleep(
+                for: .seconds(6)
+            )
+
+            isLoading = false
+        }
+    }
+
+    private var contentStates: some View {
 
         ZStack {
 
@@ -81,17 +117,64 @@ struct ContentStateUITestHarness: View {
                     "contentState.harness.retryCount"
                 )
         }
-        .task {
-            guard scenario == .slow else {
-                return
+    }
+
+    private var gameCards: some View {
+
+        NavigationStack {
+
+            VStack(spacing: 24) {
+
+                GameCard(
+                    game: game(
+                        id: UUID(
+                            uuidString:
+                                "00000000-0000-0000-0000-000000000001"
+                        )!,
+                        startsAt: Date().addingTimeInterval(86_400),
+                        isFinished: false
+                    )
+                )
+
+                GameCard(
+                    game: game(
+                        id: UUID(
+                            uuidString:
+                                "00000000-0000-0000-0000-000000000002"
+                        )!,
+                        startsAt: Date().addingTimeInterval(-86_400),
+                        isFinished: true
+                    )
+                )
             }
-
-            try? await Task.sleep(
-                for: .seconds(6)
-            )
-
-            isLoading = false
+            .padding()
         }
+        .environmentObject(router)
+    }
+
+    private func game(
+        id: UUID,
+        startsAt: Date,
+        isFinished: Bool
+    ) -> Game {
+
+        Game(
+            id: id,
+            parkId: UUID(),
+            creatorId: UUID(),
+            sport: Sport(
+                id: UUID(),
+                name: "basketball"
+            ),
+            startsAt: startsAt,
+            durationMinutes: 60,
+            maxPlayers: 10,
+            isFinished: isFinished,
+            isProcessed: isFinished,
+            isInProgress: false,
+            mvpVotingOpen: false,
+            joinedPlayers: 6
+        )
     }
 
     private func retry() {

@@ -636,8 +636,10 @@ private extension AuthView {
                 .font(.headline)
                 .fontWeight(.bold)
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 58)
+            .frame(
+                maxWidth: isLogin ? .infinity : 260
+            )
+            .frame(height: isLogin ? 58 : 50)
         }
         .buttonStyle(.glassProminent)
         .tint(Color("AccentColor"))

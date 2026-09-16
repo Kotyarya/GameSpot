@@ -110,7 +110,9 @@ struct ProfileView: View {
 
         if viewModel.isLoading {
 
-            LoadingView()
+            NativeLoadingView(
+                title: "Loading Profile"
+            )
                 .transition(
                     .opacity.combined(
                         with: .scale(scale: 0.98)

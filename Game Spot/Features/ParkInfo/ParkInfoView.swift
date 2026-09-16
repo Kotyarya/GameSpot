@@ -88,7 +88,9 @@ private extension ParkInfoView {
         if viewModel.isLoading,
            viewModel.details == nil {
 
-            LoadingView()
+            NativeLoadingView(
+                title: "Loading Park"
+            )
                 .accessibilityIdentifier("parkDetails.loading")
 
         } else if let error = viewModel.errorMessage,

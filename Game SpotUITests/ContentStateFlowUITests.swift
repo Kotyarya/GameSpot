@@ -55,6 +55,35 @@ final class ContentStateFlowUITests: XCTestCase {
         )
     }
 
+    func testNativeLoadingUsesSystemProgressIndicator() {
+        launch(scenario: "nativeLoading")
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "nativeLoading.progress"
+            ].waitForExistence(timeout: 3)
+        )
+        XCTAssertFalse(app.staticTexts["Game Spot"].exists)
+    }
+
+    func testFinishedGameCardIsMoreCompact() {
+        launch(scenario: "gameCards")
+
+        let openCard = app.buttons[
+            "gameCard.00000000-0000-0000-0000-000000000001"
+        ]
+        let finishedCard = app.buttons[
+            "gameCard.00000000-0000-0000-0000-000000000002"
+        ]
+
+        XCTAssertTrue(openCard.waitForExistence(timeout: 3))
+        XCTAssertTrue(finishedCard.waitForExistence(timeout: 3))
+        XCTAssertLessThan(
+            finishedCard.frame.height,
+            openCard.frame.height
+        )
+    }
+
     private func launch(
         scenario: String
     ) {
