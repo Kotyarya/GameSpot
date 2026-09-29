@@ -109,6 +109,7 @@ struct SettingsView: View {
                             : "Delete Account",
                             systemImage: "trash"
                         )
+                        .foregroundStyle(Color.red)
 
                         if accountDeletionViewModel.isDeleting {
                             Spacer()
