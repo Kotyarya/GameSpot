@@ -1,6 +1,6 @@
 # SwiftUI Preview inventory
 
-TASK-81 adds a deterministic preview catalog for the user-facing SwiftUI surface. All `#Preview` declarations live in `PreviewSupport` and are split into small feature-based files, so Xcode Canvas never needs to display one oversized selector. Open the relevant `*Previews.swift` file in Xcode and show the Canvas. Every preview uses fixed local data; it does not require a signed-in Supabase session, location permission, Photos access, or network connectivity.
+The project includes a deterministic preview catalog for the user-facing SwiftUI surface. All `#Preview` declarations live in `PreviewSupport` and are split into small feature-based files, so Xcode Canvas never needs to display one oversized selector. Open the relevant `*Previews.swift` file in Xcode and show the Canvas. Every preview uses fixed local data; it does not require a signed-in Supabase session, location permission, Photos access, or network connectivity.
 
 ## Preview architecture
 
@@ -67,4 +67,4 @@ TASK-81 adds a deterministic preview catalog for the user-facing SwiftUI surface
 2. Open the `PreviewSupport` folder, choose the relevant feature catalog, and select a named preview in the Canvas.
 3. Confirm loaded, empty, and error variants render without credentials or connectivity.
 4. Run the Debug build to compile all preview macros and support code.
-5. Run the Release build and the unit/UI test suites before completing TASK-81.
+5. Run the Release build and the unit/UI test suites before merging preview changes.

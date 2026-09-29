@@ -13,7 +13,7 @@
 5. Если session нет, UI показывает Check your email и Resend.
 6. Confirmation deep link `gamespot://auth/confirmed` обрабатывает `AuthLinkCoordinator`; после PKCE session exchange profile загружается заново.
 
-Production сейчас использует auto-confirm, поэтому обычная регистрация сразу создаёт session. Код confirmation сохранён для корректности при будущей смене настройки.
+При включённом Auth auto-confirm обычная регистрация сразу создаёт session. Код confirmation сохранён для environments, где требуется подтверждение email.
 
 ### Sign in / sign out
 
@@ -30,7 +30,7 @@ Sign in with Apple в версии 1.0 отсутствует: прежняя н
 5. `PasswordRecoveryView` проверяет те же password rules, что registration, и вызывает Auth update.
 6. После успеха recovery session закрывается; пользователь возвращается к Sign In.
 
-Локальный код и tests готовы. Hosted redirect allow-list ещё не содержит два custom URL, поэтому production E2E отложен; см. [TODO.md](TODO.md).
+Оба exact redirect URL настроены для hosted Auth. Wildcard redirects не используются.
 
 ## Onboarding и Profile Setup
 
@@ -146,8 +146,9 @@ Report позволяет выбрать причину и добавить до
 
 Profile → Blocked Users показывает приватный список и позволяет выполнить
 Unblock. Username проверяется сервером на длину, допустимые символы, reserved
-names и минимальный offensive-word deny-list. Ручной процесс владельца описан в
-[MODERATION.md](MODERATION.md).
+names и минимальный offensive-word deny-list. Статус жалобы доступен только
+привилегированному backend-процессу, а клиент не может читать чужие жалобы или
+изменять результат модерации.
 
 ## Profile и Statistics
 

@@ -49,7 +49,7 @@ Workspace отдельно не создавался. Swift Package Manager ав
 - `SupabaseURL`;
 - `SupabasePublishableKey`.
 
-Production values в текущей рабочей ветке уже заданы. При подключении другого environment получите Project URL и активный publishable/legacy anon key в Supabase Dashboard → Project Settings/API и замените значения локально.
+Для своего environment получите Project URL и активный publishable/legacy anon key в Supabase Dashboard → Project Settings/API. Не используйте server-side credentials в client configuration.
 
 Никогда не добавляйте в iOS или Git:
 
@@ -129,7 +129,7 @@ xcodebuild test \
   -only-testing:'Game SpotUITests'
 ```
 
-Большинство tests используют DEBUG-only harness и не требуют account. Authenticated tests выполняются только при наличии полностью onboarded disposable/test account. Передавайте credentials через временное окружение уже запущенного симулятора, потому что UI-test runner не наследует произвольные shell variables от `xcodebuild`:
+Большинство tests используют DEBUG-only harness и не требуют account. Authenticated tests выполняются только при наличии полностью onboarded isolated test account. Передавайте credentials через временное окружение уже запущенного симулятора, потому что UI-test runner не наследует произвольные shell variables от `xcodebuild`:
 
 ```bash
 read -r 'GAMESPOT_UI_TEST_EMAIL?Test email: '
@@ -158,7 +158,7 @@ unset GAMESPOT_UI_TEST_EMAIL GAMESPOT_UI_TEST_PASSWORD \
   GAMESPOT_SIMULATOR_UDID
 ```
 
-При необходимости замените `-only-testing` на другой authenticated test, например `Game SpotUITests/AuthFlowUITests/testAuthenticatedUserCanOpenPrivacyPolicy`. Не записывайте credentials в scheme, shell history, Git или документацию. В production-тесте используйте одноразовый account и удалите его после проверки. Для повторной ручной демонстрации можно использовать отдельный тестовый account, не сохраняя его пароль в проекте.
+При необходимости замените `-only-testing` на другой authenticated test, например `Game SpotUITests/AuthFlowUITests/testAuthenticatedUserCanOpenPrivacyPolicy`. Не записывайте credentials в scheme, shell history, Git или документацию. Используйте изолированный test account и удаляйте его после проверки.
 
 ## Release build без подписи
 
@@ -232,11 +232,10 @@ supabase stop
 
 ## Полезная последовательность перед изменением кода
 
-1. Прочитать [TODO.md](TODO.md) и соответствующую задачу Notion.
-2. Убедиться, что ветка `codex/gamespot-appstore` чистая.
-3. Для Swift: focused tests → полный unit suite → relevant UI → Release build.
-4. Для SQL: новая migration → clean reset → 6 SQL tests → schema diff → advisor review.
-5. Не менять production, не push и не merge без явного разрешения.
+1. Создать отдельную ветку и убедиться, что рабочая копия чистая.
+2. Для Swift: focused tests → полный unit suite → relevant UI → Release build.
+3. Для SQL: новая migration → clean reset → все SQL regression tests → schema diff → advisor review.
+4. Не сохранять credentials, production user data или server-side secrets в Git.
 
 ## Частые проблемы
 
