@@ -1,6 +1,44 @@
 import Foundation
 import Supabase
 
+@MainActor
+protocol ProfileFetching: AnyObject, Sendable {
+
+    func fetchProfile(
+        userId: UUID
+    ) async throws -> Profile
+
+    func fetchUserStats(
+        userId: UUID
+    ) async throws -> [UserSportStats]
+
+    func getRecentMatches() async throws -> [RecentMatch]
+}
+
+@MainActor
+protocol ProfileSetupServing: AnyObject, Sendable {
+
+    func isUsernameAvailable(
+        _ username: String
+    ) async throws -> Bool
+
+    func completeProfile(
+        userId: UUID,
+        username: String,
+        avatarUrl: String?,
+        sportId: UUID
+    ) async throws
+}
+
+@MainActor
+protocol ProfileAvatarUpdating: AnyObject, Sendable {
+
+    func updateAvatar(
+        userId: UUID,
+        avatarUrl: String?
+    ) async throws
+}
+
 final class ProfileService: @unchecked Sendable {
 
     // MARK: - Shared
@@ -89,14 +127,15 @@ final class ProfileService: @unchecked Sendable {
         _ username: String
     ) async throws -> Bool {
 
-        let users: [IdOnly] = try await client
-            .from("profiles")
-            .select("id")
-            .eq("username", value: username)
+        return try await client
+            .rpc(
+                "is_username_available",
+                params: UsernameAvailabilityParams(
+                    p_username: username
+                )
+            )
             .execute()
             .value
-
-        return users.isEmpty
     }
 
     // MARK: - Onboarding
@@ -136,15 +175,35 @@ final class ProfileService: @unchecked Sendable {
             .eq("id", value: userId)
             .execute()
     }
+
+    func updateAvatar(
+        userId: UUID,
+        avatarUrl: String?
+    ) async throws {
+
+        try await client
+            .from("profiles")
+            .update(
+                AvatarPayload(
+                    avatar_url: avatarUrl
+                )
+            )
+            .eq("id", value: userId)
+            .execute()
+    }
 }
+
+extension ProfileService: ProfileFetching {}
+extension ProfileService: ProfileSetupServing {}
+extension ProfileService: ProfileAvatarUpdating {}
 
 // MARK: - DTOs
 
 private extension ProfileService {
 
-    struct IdOnly: Decodable {
+    struct UsernameAvailabilityParams: Encodable {
 
-        let id: UUID
+        let p_username: String
     }
 
     struct CompleteProfilePayload: Encodable {
@@ -156,5 +215,10 @@ private extension ProfileService {
         let favorite_sport_id: String
 
         let is_profile_completed: Bool
+    }
+
+    struct AvatarPayload: Encodable {
+
+        let avatar_url: String?
     }
 }

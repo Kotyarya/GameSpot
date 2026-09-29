@@ -1,6 +1,52 @@
 import Foundation
 import Supabase
 
+@MainActor
+protocol GamesFetching: AnyObject {
+
+    func fetchGamesByPark(
+        parkId: UUID
+    ) async throws -> [Game]
+
+    func fetchUserGames() async throws -> [Game]
+}
+
+@MainActor
+protocol GameCreating: AnyObject {
+
+    func createGame(
+        parkId: UUID,
+        sportId: UUID,
+        startsAt: Date
+    ) async throws -> UUID
+}
+
+@MainActor
+protocol GameInfoServing: AnyObject {
+
+    func fetchGameDetails(
+        gameId: UUID
+    ) async throws -> GameDetails
+
+    func fetchGameMembers(
+        gameId: UUID
+    ) async throws -> [GameMember]
+
+    func joinGame(
+        gameId: UUID,
+        team: Team
+    ) async throws
+
+    func leaveGame(
+        gameId: UUID
+    ) async throws
+
+    func voteMVP(
+        gameId: UUID,
+        votedUserId: UUID
+    ) async throws
+}
+
 final class GameService: @unchecked Sendable {
 
     // MARK: - Shared
@@ -52,6 +98,18 @@ final class GameService: @unchecked Sendable {
                 params: params
             )
             .single()
+            .execute()
+            .value
+    }
+
+    func fetchGameMembers(
+        gameId: UUID
+    ) async throws -> [GameMember] {
+
+        try await client
+            .from("game_members")
+            .select("user_id, team")
+            .eq("game_id", value: gameId.uuidString)
             .execute()
             .value
     }
@@ -144,6 +202,12 @@ final class GameService: @unchecked Sendable {
             .execute()
     }
 }
+
+extension GameService: GamesFetching {}
+
+extension GameService: GameCreating {}
+
+extension GameService: GameInfoServing {}
 
 // MARK: - DTOs
 

@@ -4,6 +4,17 @@ import Combine
 @MainActor
 final class AuthViewModel: ObservableObject {
 
+    private let service: any AuthServing
+
+    // MARK: - Init
+
+    init(
+        service: any AuthServing = AuthService.shared
+    ) {
+
+        self.service = service
+    }
+
     // MARK: - Inputs
 
     @Published var email: String = ""
@@ -16,30 +27,39 @@ final class AuthViewModel: ObservableObject {
 
     @Published var errorMessage: String?
 
+    @Published private(set) var statusMessage: String?
+
+    @Published private(set) var pendingConfirmationEmail: String?
+
     // MARK: - Validation
 
     var isValid: Bool {
 
-        !email.isEmpty
+        !normalizedEmail.isEmpty
         && !password.isEmpty
         && password.count >= 6
     }
 
     // MARK: - Authentication
 
+    @discardableResult
     func signIn(
-        session: SessionManager
-    ) {
+        session: any SessionRefreshing
+    ) -> Task<Void, Never> {
 
-        Task {
+        Task { @MainActor in
+
+            guard !isLoading else {
+                return
+            }
 
             do {
 
-                errorMessage = nil
+                resetFeedback()
                 isLoading = true
 
-                try await AuthService.shared.signIn(
-                    email: email,
+                try await service.signIn(
+                    email: normalizedEmail,
                     password: password
                 )
 
@@ -47,65 +67,95 @@ final class AuthViewModel: ObservableObject {
 
             } catch {
 
-                errorMessage =
-                    error.localizedDescription
+                errorMessage = "Couldn’t sign in. Check your details and connection, then try again."
             }
 
             isLoading = false
         }
     }
 
+    @discardableResult
     func signUp(
-        session: SessionManager
-    ) {
+        session: any SessionRefreshing
+    ) -> Task<Void, Never> {
 
-        Task {
+        Task { @MainActor in
+
+            guard !isLoading else {
+                return
+            }
 
             do {
 
-                errorMessage = nil
+                resetFeedback()
+                pendingConfirmationEmail = nil
                 isLoading = true
 
-                try await AuthService.shared.signUp(
-                    email: email,
+                let result = try await service.signUp(
+                    email: normalizedEmail,
                     password: password
                 )
 
-                session.refreshUser()
+                switch result {
+                case .signedIn:
+                    session.refreshUser()
+                case .confirmationRequired(let email):
+                    pendingConfirmationEmail = email
+                    statusMessage = nil
+                }
 
             } catch {
 
-                errorMessage =
-                    error.localizedDescription
+                errorMessage = "Couldn’t create your account. Check your connection and try again."
             }
 
             isLoading = false
         }
     }
 
-    func signInWithApple(
-        session: SessionManager
-    ) {
+    @discardableResult
+    func resendSignUpConfirmation() -> Task<Void, Never> {
 
-        Task {
+        Task { @MainActor in
+
+            guard let pendingConfirmationEmail else {
+                return
+            }
+
+            errorMessage = nil
+            statusMessage = nil
+            isLoading = true
 
             do {
+                try await service.resendSignUpConfirmation(
+                    email: pendingConfirmationEmail
+                )
 
-                errorMessage = nil
-                isLoading = true
-
-                try await AuthService.shared
-                    .signInWithApple()
-
-                session.refreshUser()
+                statusMessage = "Confirmation email sent. Open the link on this device."
 
             } catch {
-
-                errorMessage =
-                    error.localizedDescription
+                errorMessage = "Couldn’t resend the confirmation email. Please try again."
             }
 
             isLoading = false
         }
     }
+
+    func returnToSignIn() {
+        pendingConfirmationEmail = nil
+        resetFeedback()
+        password = ""
+    }
+
+    func resetFeedback() {
+        statusMessage = nil
+        errorMessage = nil
+    }
+
+    var normalizedEmail: String {
+        email
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+    }
+
 }

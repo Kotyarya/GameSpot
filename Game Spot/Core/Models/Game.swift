@@ -7,7 +7,7 @@ struct Game: Decodable, Identifiable, Equatable {
     let id: UUID
     
     let parkId: UUID
-    let creatorId: UUID
+    let creatorId: UUID?
     
     let sport: Sport
     
@@ -96,5 +96,22 @@ struct GameDetails: Decodable, Identifiable {
         case mvpVotingOpen = "mvp_voting_open"
         case hasVoted = "has_voted"
         case mvpPlayer = "mvp_player"
+    }
+}
+
+// MARK: Game Member
+
+struct GameMember: Decodable, Identifiable, Equatable {
+
+    let userId: UUID
+    let team: Team
+
+    var id: UUID {
+        userId
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
+        case team
     }
 }

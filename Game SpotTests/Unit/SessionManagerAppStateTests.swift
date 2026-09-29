@@ -6,6 +6,7 @@
 //
 
 import XCTest
+import Supabase
 @testable import Game_Spot
 
 @MainActor
@@ -13,11 +14,11 @@ final class SessionManagerAppStateTests: XCTestCase {
 
     private var session: SessionManager!
 
-    override func setUp() async throws {
-        try await super.setUp()
-        session = SessionManager()
-        // Wait for initial restoreSession from init to settle.
-        try await Task.sleep(for: .milliseconds(600))
+    override func setUp() {
+        super.setUp()
+        session = SessionManager(
+            restoreSessionOnInit: false
+        )
     }
 
     func testAppStateLoadingBeforeSessionCheck() {
@@ -44,6 +45,35 @@ final class SessionManagerAppStateTests: XCTestCase {
         session.error = "Network failure"
 
         XCTAssertEqual(session.appState, .auth)
+    }
+
+    func testProfileLoadFailureShowsRecoverableAccountState() async {
+        let user = User(
+            id: TestFixtures.userId,
+            appMetadata: [:],
+            userMetadata: [:],
+            aud: "authenticated",
+            email: "player@example.com",
+            createdAt: Date(),
+            updatedAt: Date()
+        )
+        let failedSession = SessionManager(
+            authService: SessionAuthServiceStub(
+                currentUser: user
+            ),
+            profileService: FailingProfileServiceStub(),
+            restoreSessionOnInit: false
+        )
+
+        await failedSession.restoreSession()
+
+        XCTAssertTrue(failedSession.didCheckSession)
+        XCTAssertEqual(failedSession.appState, .loadError)
+        XCTAssertEqual(
+            failedSession.error,
+            "Couldn’t load your account. Check your connection and try again."
+        )
+        XCTAssertNil(failedSession.profile)
     }
 
     func testAppStateLoadingWhenProfileMissing() {
@@ -85,5 +115,72 @@ final class SessionManagerAppStateTests: XCTestCase {
 
         XCTAssertTrue(profile.isOnboarded)
         XCTAssertTrue(profile.isProfileCompleted)
+    }
+
+    func testFinishPasswordRecoveryClearsSessionAndShowsNotice() async {
+        let authService = SessionAuthServiceStub()
+        let recoverySession = SessionManager(
+            authService: authService,
+            restoreSessionOnInit: false
+        )
+
+        await recoverySession.finishPasswordRecovery()
+
+        XCTAssertEqual(authService.signOutCallCount, 1)
+        XCTAssertNil(recoverySession.user)
+        XCTAssertNil(recoverySession.profile)
+        XCTAssertTrue(recoverySession.didCheckSession)
+        XCTAssertEqual(
+            recoverySession.authNotice,
+            "Password updated. Sign in with your new password."
+        )
+        XCTAssertEqual(recoverySession.appState, .auth)
+    }
+}
+
+@MainActor
+private final class SessionAuthServiceStub: SessionAuthServing {
+
+    let currentUser: User?
+
+    private(set) var signOutCallCount = 0
+
+    init(
+        currentUser: User? = nil
+    ) {
+        self.currentUser = currentUser
+    }
+
+    func signOut() async throws {
+        signOutCallCount += 1
+    }
+}
+
+@MainActor
+private final class FailingProfileServiceStub: ProfileFetching {
+
+    func fetchProfile(
+        userId: UUID
+    ) async throws -> Profile {
+        throw SessionStateTestError.secretBackendFailure
+    }
+
+    func fetchUserStats(
+        userId: UUID
+    ) async throws -> [UserSportStats] {
+        []
+    }
+
+    func getRecentMatches() async throws -> [RecentMatch] {
+        []
+    }
+}
+
+private enum SessionStateTestError: LocalizedError {
+
+    case secretBackendFailure
+
+    var errorDescription: String? {
+        "secret backend failure"
     }
 }

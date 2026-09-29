@@ -12,15 +12,31 @@ final class MapViewModel: ObservableObject {
 
     @Published var isLoading = false
 
+    @Published private(set) var errorMessage: String?
+
     // MARK: - Services
 
-    private let service = ParkService.shared
+    private let service: any ParksFetching
+
+    // MARK: - Init
+
+    init(
+        service: any ParksFetching = ParkService.shared
+    ) {
+        self.service = service
+    }
 
     // MARK: - Load
 
     func load() async {
 
+        guard !isLoading else {
+            return
+        }
+
         isLoading = true
+
+        errorMessage = nil
 
         defer {
             isLoading = false
@@ -32,6 +48,13 @@ final class MapViewModel: ObservableObject {
                 .fetchParks()
 
         } catch {
+
+            if error is CancellationError {
+                return
+            }
+
+            errorMessage =
+                "Couldn’t load parks. Check your connection and try again."
 
             AppLogger.error(
                 "MapViewModel load failed",

@@ -1,5 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict/>
+<dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>CFBundleURLName</key>
+			<string>com.kotyarya.GameSpot.auth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>gamespot</string>
+			</array>
+		</dict>
+	</array>
+	<key>SupabasePublishableKey</key>
+	<string>sb_publishable_n7dawFU2aQMpyDUyzcYMWA_XgG4mDso</string>
+	<key>SupabaseURL</key>
+	<string>https://xoopxlnqyxfqurroogrz.supabase.co</string>
+</dict>
 </plist>

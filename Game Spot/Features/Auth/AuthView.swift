@@ -1,17 +1,24 @@
 import SwiftUI
-import AuthenticationServices
 
 struct AuthView: View {
 
     // MARK: - View Model
 
-    @StateObject private var vm =
-        AuthViewModel()
+    @StateObject private var vm: AuthViewModel
+
+    init(
+        viewModel: AuthViewModel = AuthViewModel()
+    ) {
+        _vm = StateObject(wrappedValue: viewModel)
+    }
 
     // MARK: - Environment
 
     @EnvironmentObject var session:
         SessionManager
+
+    @EnvironmentObject var authLinks:
+        AuthLinkCoordinator
 
     // MARK: - State
 
@@ -22,6 +29,8 @@ struct AuthView: View {
     @State private var showPassword = false
 
     @State private var showConfirmPassword = false
+
+    @State private var showsPasswordReset = false
 
     @FocusState private var focusedField: Field?
 
@@ -40,40 +49,22 @@ struct AuthView: View {
 
     private var passwordChecks: [PasswordCheck] {
 
-        [
-            PasswordCheck(
-                title: "At least 8 characters",
-                passed: vm.password.count >= 8
-            ),
-
-            PasswordCheck(
-                title: "One uppercase letter",
-                passed:
-                    vm.password.range(
-                        of: "[A-Z]",
-                        options: .regularExpression
-                    ) != nil
-            ),
-
-            PasswordCheck(
-                title: "One number",
-                passed:
-                    vm.password.range(
-                        of: "[0-9]",
-                        options: .regularExpression
-                    ) != nil
-            )
-        ]
+        PasswordPolicy.checks(
+            for: vm.password
+        )
     }
 
     private var passwordStrongEnough: Bool {
 
-        passwordChecks.allSatisfy(\.passed)
+        PasswordPolicy.isValid(vm.password)
     }
 
     private var passwordsMatch: Bool {
 
-        vm.password == confirmPassword
+        PasswordPolicy.passwordsMatch(
+            vm.password,
+            confirmation: confirmPassword
+        )
     }
 
     private var canSubmit: Bool {
@@ -119,6 +110,11 @@ struct AuthView: View {
             .easeInOut(duration: 0.3),
             value: vm.isLoading
         )
+        .sheet(isPresented: $showsPasswordReset) {
+            PasswordResetRequestView(
+                initialEmail: vm.email
+            )
+        }
     }
 }
 
@@ -218,17 +214,20 @@ private extension AuthView {
 
         VStack(spacing: 22) {
 
-            formSection
+            if let email = vm.pendingConfirmationEmail {
 
-            errorSection
+                confirmationRequiredSection(email: email)
 
-            mainButton
+            } else {
 
-            dividerSection
+                formSection
 
-            appleButton
+                feedbackSection
 
-            switchModeButton
+                mainButton
+
+                switchModeButton
+            }
         }
         .padding(24)
         .glassEffect(
@@ -257,6 +256,10 @@ private extension AuthView {
             emailField
 
             passwordField
+
+            if isLogin {
+                forgotPasswordButton
+            }
 
             if !isLogin {
                 confirmPasswordField
@@ -501,9 +504,31 @@ private extension AuthView {
         )
     }
 
-    var errorSection: some View {
+    var feedbackSection: some View {
 
-        Group {
+        VStack(alignment: .leading, spacing: 10) {
+
+            if let notice = session.authNotice {
+
+                Label(
+                    notice,
+                    systemImage: "checkmark.circle.fill"
+                )
+                .font(.subheadline)
+                .foregroundStyle(.green)
+                .accessibilityIdentifier("auth.notice")
+            }
+
+            if let confirmationError = authLinks.emailConfirmationError {
+
+                Label(
+                    confirmationError,
+                    systemImage: "exclamationmark.circle.fill"
+                )
+                .font(.subheadline)
+                .foregroundStyle(.red)
+                .accessibilityIdentifier("auth.confirmation.error")
+            }
 
             if let error = vm.errorMessage {
 
@@ -522,8 +547,73 @@ private extension AuthView {
                     maxWidth: .infinity,
                     alignment: .leading
                 )
+                .accessibilityIdentifier("auth.error")
             }
         }
+    }
+
+    var forgotPasswordButton: some View {
+
+        Button("Forgot password?") {
+            session.clearAuthNotice()
+            showsPasswordReset = true
+        }
+        .font(.subheadline.weight(.semibold))
+        .foregroundStyle(Color("AccentColor"))
+        .frame(maxWidth: .infinity, alignment: .trailing)
+        .accessibilityIdentifier("auth.forgotPassword")
+    }
+
+    @ViewBuilder
+    func confirmationRequiredSection(
+        email: String
+    ) -> some View {
+
+        Image(systemName: "envelope.badge")
+            .font(.system(size: 44, weight: .semibold))
+            .foregroundStyle(primary)
+
+        Text("Check Your Email")
+            .font(.title2.bold())
+
+        Text(
+            "We sent a confirmation link to \(email). Open it on this device to finish creating your account."
+        )
+        .multilineTextAlignment(.center)
+        .foregroundStyle(.secondary)
+
+        if let statusMessage = vm.statusMessage {
+            Label(
+                statusMessage,
+                systemImage: "checkmark.circle.fill"
+            )
+            .font(.subheadline)
+            .foregroundStyle(.green)
+        }
+
+        if let errorMessage = vm.errorMessage {
+            Label(
+                errorMessage,
+                systemImage: "exclamationmark.circle.fill"
+            )
+            .font(.subheadline)
+            .foregroundStyle(.red)
+        }
+
+        Button("Resend Confirmation Email") {
+            vm.resendSignUpConfirmation()
+        }
+        .buttonStyle(.glassProminent)
+        .tint(primary)
+        .disabled(vm.isLoading)
+        .accessibilityIdentifier("auth.confirmation.resend")
+
+        Button("Back to Sign In") {
+            vm.returnToSignIn()
+            isLogin = true
+        }
+        .disabled(vm.isLoading)
+        .accessibilityIdentifier("auth.confirmation.back")
     }
 
     var mainButton: some View {
@@ -551,8 +641,10 @@ private extension AuthView {
                 .font(.headline)
                 .fontWeight(.bold)
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 58)
+            .frame(
+                maxWidth: isLogin ? .infinity : 260
+            )
+            .frame(height: isLogin ? 58 : 50)
         }
         .buttonStyle(.glassProminent)
         .tint(Color("AccentColor"))
@@ -567,59 +659,16 @@ private extension AuthView {
         )
     }
 
-    var dividerSection: some View {
-
-        HStack {
-
-            Rectangle()
-                .fill(.gray.opacity(0.25))
-                .frame(height: 1)
-
-            Text("or")
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 8)
-
-            Rectangle()
-                .fill(.gray.opacity(0.25))
-                .frame(height: 1)
-        }
-    }
-
-    var appleButton: some View {
-
-        SignInWithAppleButton(
-            isLogin
-            ? .signIn
-            : .signUp
-        ) { request in
-
-            request.requestedScopes = [
-                .fullName,
-                .email
-            ]
-
-        } onCompletion: { _ in
-
-            vm.signInWithApple(
-                session: session
-            )
-        }
-        .frame(height: 56)
-        .clipShape(
-            RoundedRectangle(
-                cornerRadius: 18,
-                style: .continuous
-            )
-        )
-        .disabled(true)
-    }
-
     var switchModeButton: some View {
 
         Button {
 
             withAnimation(.spring) {
                 isLogin.toggle()
+                confirmPassword = ""
+                vm.resetFeedback()
+                session.clearAuthNotice()
+                authLinks.reset()
             }
 
         } label: {
@@ -667,19 +716,4 @@ private extension AuthView {
             }
         }
     }
-}
-
-// MARK: - Password Check
-
-struct PasswordCheck: Identifiable {
-
-    let id = UUID()
-
-    let title: String
-
-    let passed: Bool
-}
-
-#Preview {
-    AuthView()
 }

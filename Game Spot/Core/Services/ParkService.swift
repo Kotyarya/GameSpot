@@ -1,6 +1,33 @@
 import Foundation
 import Supabase
 
+@MainActor
+protocol ParksFetching: AnyObject {
+
+    func fetchParks() async throws -> [Park]
+}
+
+@MainActor
+protocol ParkDetailsServing: AnyObject {
+
+    func fetchParkDetails(
+        parkId: UUID
+    ) async throws -> ParkDetails
+
+    func ratePark(
+        userId: UUID,
+        parkId: UUID,
+        quality: Int,
+        facilities: Int,
+        activity: Int
+    ) async throws
+
+    func hasUserRated(
+        userId: UUID,
+        parkId: UUID
+    ) async throws -> Bool
+}
+
 final class ParkService: @unchecked Sendable {
 
     // MARK: - Shared
@@ -215,6 +242,9 @@ final class ParkService: @unchecked Sendable {
             .value
     }
 }
+
+extension ParkService: ParksFetching {}
+extension ParkService: ParkDetailsServing {}
 
 // MARK: - DTOs
 

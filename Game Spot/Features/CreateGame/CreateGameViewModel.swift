@@ -21,7 +21,20 @@ final class CreateGameViewModel: ObservableObject {
     
     // MARK: - Services
     
-    private let service = GameService.shared
+    private let service: any GameCreating
+
+    private let loadingDelay: Duration
+
+    // MARK: - Init
+
+    init(
+        service: any GameCreating = GameService.shared,
+        loadingDelay: Duration = .milliseconds(700)
+    ) {
+
+        self.service = service
+        self.loadingDelay = loadingDelay
+    }
     
     // MARK: - Actions
     
@@ -56,7 +69,8 @@ final class CreateGameViewModel: ObservableObject {
             
             await stopLoadingWithDelay()
             
-            errorMessage = error.localizedDescription
+            errorMessage =
+                "Couldn’t create the game. Check your connection and try again."
             
             AppLogger.error(
                 "CreateGameViewModel create game failed",
@@ -72,7 +86,7 @@ final class CreateGameViewModel: ObservableObject {
     private func stopLoadingWithDelay() async {
         
         try? await Task.sleep(
-            for: .milliseconds(700)
+            for: loadingDelay
         )
         
         isLoading = false

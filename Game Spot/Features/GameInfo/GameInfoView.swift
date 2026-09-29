@@ -4,15 +4,30 @@ internal import Auth
 
 struct GameInfoView: View {
     
-    @StateObject private var vm: GameInfoViewModel = GameInfoViewModel()
+    @StateObject private var vm: GameInfoViewModel
     
     @State private var selectedItem: MKMapItem?
     
     @State private var showJoinSheet = false
     @EnvironmentObject var session: SessionManager
     @State private var livePulse = false
+    @State private var blockedPlayerIds: Set<UUID> = []
+    @State private var isLoadingBlockedPlayers = true
+    @State private var blockedPlayersErrorMessage: String?
     
     let gameId: UUID
+
+    private let userSafetyService: any UserSafetyServing
+
+    init(
+        gameId: UUID,
+        viewModel: GameInfoViewModel = GameInfoViewModel(),
+        userSafetyService: any UserSafetyServing = UserSafetyService.shared
+    ) {
+        self.gameId = gameId
+        self.userSafetyService = userSafetyService
+        _vm = StateObject(wrappedValue: viewModel)
+    }
     
     @State private var showMVPInfo = false
     
@@ -49,6 +64,14 @@ struct GameInfoView: View {
 
         guard let details else {
             return "Open"
+        }
+
+        if details.mvpVotingOpen {
+            return "MVP Voting"
+        }
+
+        if details.isProcessed {
+            return "Completed"
         }
 
         if details.isFinished {
@@ -199,16 +222,52 @@ struct GameInfoView: View {
         )
     }
     
+    private var rosterPlayers: [Player] {
+
+        var players = details?.players ?? []
+        let loadedPlayerIds = Set(players.map(\.id))
+
+        for member in vm.gameMembers
+        where blockedPlayerIds.contains(member.userId)
+            && !loadedPlayerIds.contains(member.userId) {
+
+            players.append(
+                Player(
+                    id: member.userId,
+                    username: "Blocked player",
+                    avatarUrl: nil,
+                    team: member.team,
+                    rating: 0,
+                    gamesPlayed: 0,
+                    createdAt: .distantPast,
+                    isTopRated: false,
+                    isMostActive: false,
+                    isNewest: false,
+                    mvpVotesCount: 0,
+                    isVotedByCurrentUser: false
+                )
+            )
+        }
+
+        return players
+    }
+
+    private var visiblePlayers: [Player] {
+        rosterPlayers.filter {
+            !blockedPlayerIds.contains($0.id)
+        }
+    }
+
     private var teamAlpha: [Player] {
-        details?.players.filter {
+        visiblePlayers.filter {
             $0.team == .alpha
-        } ?? []
+        }
     }
 
     private var teamBeta: [Player] {
-        details?.players.filter {
+        visiblePlayers.filter {
             $0.team == .beta
-        } ?? []
+        }
     }
     
     @ViewBuilder
@@ -249,15 +308,110 @@ struct GameInfoView: View {
     }
     
     private var topRatedPlayer: Player? {
-        details?.players.first(where: { $0.isTopRated })
+        visiblePlayers.first(where: { $0.isTopRated })
     }
 
     private var mostActivePlayer: Player? {
-        details?.players.first(where: { $0.isMostActive })
+        visiblePlayers.first(where: { $0.isMostActive })
     }
 
     private var newestPlayer: Player? {
-        details?.players.first(where: { $0.isNewest })
+        visiblePlayers.first(where: { $0.isNewest })
+    }
+
+    private func playerListRow(
+        _ player: Player
+    ) -> some View {
+
+        let isBlocked = blockedPlayerIds.contains(
+            player.id
+        )
+
+        return HStack(spacing: 14) {
+
+            if isBlocked {
+                placeholderAvatar
+            } else {
+                avatarView(player)
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+
+                Text(
+                    isBlocked
+                    ? "Blocked player"
+                    : player.username
+                )
+                    .font(.headline)
+
+                if isBlocked {
+                    Label(
+                        "Blocked",
+                        systemImage: "nosign"
+                    )
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                } else {
+                    Text("\(player.rating) rating")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+
+            if isBlocked {
+                Image(systemName: "lock.fill")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+            } else if player.id == session.user?.id {
+                Text("You")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            } else {
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity)
+        .glassEffect(
+            .regular.tint(Color("inversePrimary")),
+            in: RoundedRectangle(
+                cornerRadius: 20,
+                style: .continuous
+            )
+        )
+    }
+
+    private func loadBlockedPlayerIds() async {
+
+        isLoadingBlockedPlayers = true
+        blockedPlayersErrorMessage = nil
+
+        defer {
+            isLoadingBlockedPlayers = false
+        }
+
+        do {
+            let blockedUsers = try await userSafetyService
+                .fetchBlockedUsers()
+
+            blockedPlayerIds = Set(
+                blockedUsers.map(\.id)
+            )
+
+        } catch {
+            AppLogger.error(
+                "GameInfoView blocked users load failed",
+                error: error
+            )
+
+            blockedPlayersErrorMessage =
+                "Couldn’t apply your blocked-user settings. Try again before viewing this game."
+        }
     }
     
     private func highlightPlayer(
@@ -310,9 +464,26 @@ struct GameInfoView: View {
 
         Group {
         
-            if vm.isLoading && vm.details == nil {
+            if isLoadingBlockedPlayers
+                || (vm.isLoading && vm.details == nil) {
                 
                 LoadingView()
+                    .accessibilityIdentifier("gameDetails.loading")
+
+            } else if let blockedPlayersErrorMessage {
+
+                ContentStateView(
+                    title: "Couldn’t Load Privacy Settings",
+                    message: blockedPlayersErrorMessage,
+                    systemImage: "hand.raised.slash",
+                    accessibilityIdentifier:
+                        "gameDetails.blockedPlayers.error",
+                    actionTitle: "Try Again"
+                ) {
+                    Task {
+                        await loadBlockedPlayerIds()
+                    }
+                }
                 
             } else if let details {
                 
@@ -511,7 +682,7 @@ struct GameInfoView: View {
                             
                             // MARK: MVP Voting
 
-                            if details.mvpVotingOpen {
+                            if details.mvpVotingOpen && details.isJoined {
 
                                 VStack(alignment: .leading, spacing: 16) {
 
@@ -582,14 +753,16 @@ struct GameInfoView: View {
 
                                     VStack(spacing: 10) {
 
-                                        ForEach(details.players) { player in
+                                        ForEach(visiblePlayers) { player in
 
                                             MVPVoteRow(
                                                 player: player,
 
                                                 isCurrentUser: player.id == session.user?.id,
 
-                                                disabled: details.hasVoted,
+                                                disabled:
+                                                    details.hasVoted
+                                                    || vm.isSubmittingVote,
 
                                                 isSelected: player.isVotedByCurrentUser,
 
@@ -606,12 +779,33 @@ struct GameInfoView: View {
                                         }
                                     }
                                 }
+                            } else if details.mvpVotingOpen {
+
+                                Label(
+                                    "MVP voting is available to match participants only.",
+                                    systemImage: "person.2.badge.gearshape"
+                                )
+                                .font(.headline)
+                                .foregroundStyle(.secondary)
+                                .padding(20)
+                                .frame(
+                                    maxWidth: .infinity,
+                                    alignment: .leading
+                                )
+                                .glassEffect(
+                                    .regular.tint(Color("inversePrimary")),
+                                    in: RoundedRectangle(
+                                        cornerRadius: 24,
+                                        style: .continuous
+                                    )
+                                )
                             }
                             
                             //MARK: MVP Player
                             
                             if details.isProcessed,
-                               let mvp = details.mvpPlayer {
+                               let mvp = details.mvpPlayer,
+                               !blockedPlayerIds.contains(mvp.id) {
 
                                 VStack(alignment: .leading, spacing: 16) {
 
@@ -699,6 +893,61 @@ struct GameInfoView: View {
                                             style: .continuous
                                         )
                                     )
+                                }
+                            }
+
+                            // MARK: Players
+
+                            if !rosterPlayers.isEmpty {
+
+                                VStack(alignment: .leading, spacing: 12) {
+
+                                    Text("Players")
+                                        .font(.largeTitle)
+                                        .bold()
+
+                                    ForEach(rosterPlayers) { player in
+
+                                        if player.id == session.user?.id {
+
+                                            playerListRow(player)
+
+                                        } else if blockedPlayerIds.contains(
+                                            player.id
+                                        ) {
+
+                                            playerListRow(player)
+                                                .accessibilityIdentifier(
+                                                    "gameDetails.blockedPlayer.\(player.id.uuidString)"
+                                                )
+
+                                        } else {
+
+                                            NavigationLink {
+                                                PublicProfileView(
+                                                    profile: PublicProfileSummary(
+                                                        player: player
+                                                    )
+                                                ) {
+                                                    blockedPlayerIds.insert(
+                                                        player.id
+                                                    )
+
+                                                    Task {
+                                                        await vm.refreshDetails(
+                                                            gameId: gameId
+                                                        )
+                                                    }
+                                                }
+                                            } label: {
+                                                playerListRow(player)
+                                            }
+                                            .buttonStyle(.plain)
+                                            .accessibilityIdentifier(
+                                                "gameDetails.player.\(player.id.uuidString)"
+                                            )
+                                        }
+                                    }
                                 }
                             }
                             
@@ -915,35 +1164,63 @@ struct GameInfoView: View {
                                     .font(.largeTitle)
                                     .bold()
                                 
-                                HStack {
-                                    Spacer()
-                                    HStack {
-                                        Image(systemName: "thermometer.medium")
-                                            .font(.system(size: 33))
-                                        Text("\(Int(vm.weather?.temperature ?? 0))°C")
-                                            .font(.title2)
-                                            .bold()
-                                            .fontDesign(.rounded)
+                                Group {
+
+                                    if let weather = vm.weather {
+
+                                        HStack {
+                                            Spacer()
+                                            HStack {
+                                                Image(systemName: "thermometer.medium")
+                                                    .font(.system(size: 33))
+                                                Text("\(Int(weather.temperature))°C")
+                                                    .font(.title2)
+                                                    .bold()
+                                                    .fontDesign(.rounded)
+                                            }
+                                            Spacer()
+                                            HStack {
+                                                Image(systemName: "wind")
+                                                    .font(.system(size: 33))
+                                                Text("\(Int(weather.windSpeed)) km/h")
+                                                    .font(.title2)
+                                                    .bold()
+                                                    .fontDesign(.rounded)
+                                            }
+                                            Spacer()
+                                            HStack {
+                                                Image(systemName: "cloud.rain.fill")
+                                                    .font(.system(size: 33))
+                                                Text("\(weather.rainChance)%")
+                                                    .font(.title2)
+                                                    .bold()
+                                                    .fontDesign(.rounded)
+                                            }
+                                            Spacer()
+                                        }
+
+                                    } else {
+
+                                        HStack(spacing: 12) {
+                                            Image(systemName: "cloud.slash")
+
+                                            Text("Weather unavailable")
+                                                .font(.headline)
+
+                                            Spacer()
+
+                                            Button("Refresh") {
+                                                Task {
+                                                    await vm.load(gameId: gameId)
+                                                }
+                                            }
+                                            .buttonStyle(.bordered)
+                                        }
+                                        .padding(.horizontal, 16)
+                                        .accessibilityIdentifier(
+                                            "gameDetails.weather.unavailable"
+                                        )
                                     }
-                                    Spacer()
-                                    HStack {
-                                        Image(systemName: "wind")
-                                            .font(.system(size: 33))
-                                        Text("\(Int(vm.weather?.windSpeed ?? 0)) km/h")
-                                            .font(.title2)
-                                            .bold()
-                                            .fontDesign(.rounded)
-                                    }
-                                    Spacer()
-                                    HStack {
-                                        Image(systemName: "cloud.rain.fill")
-                                            .font(.system(size: 33))
-                                        Text("\(vm.weather?.rainChance ?? 0)%")
-                                            .font(.title2)
-                                            .bold()
-                                            .fontDesign(.rounded)
-                                    }
-                                    Spacer()
                                 }
                                 .padding(.vertical, 16)
                                 .frame(maxWidth: .infinity)
@@ -976,15 +1253,39 @@ struct GameInfoView: View {
                 
             } else if let error = vm.errorMessage {
                 
-                Text(error)
+                ContentStateView(
+                    title: "Couldn’t Load Game",
+                    message: error,
+                    systemImage: "wifi.exclamationmark",
+                    accessibilityIdentifier: "gameDetails.error",
+                    actionTitle: "Try Again"
+                ) {
+                    Task {
+                        await vm.load(gameId: gameId)
+                    }
+                }
                 
             } else {
                 
-                Text("No Data")
+                ContentStateView(
+                    title: "Game Unavailable",
+                    message: "This game may have been removed. Go back and choose another game.",
+                    systemImage: "sportscourt",
+                    accessibilityIdentifier: "gameDetails.empty"
+                )
             }
         }
         .task {
-            await vm.load(gameId: gameId)
+            async let detailsLoad: Void =
+                vm.load(gameId: gameId)
+
+            async let blocksLoad: Void =
+                loadBlockedPlayerIds()
+
+            _ = await (
+                detailsLoad,
+                blocksLoad
+            )
         }
         .fullScreenCover(isPresented: $showJoinSheet) {
 
@@ -996,20 +1297,16 @@ struct GameInfoView: View {
                     currentUserId: userId,
                     
                     onJoin: { team in
-                        Task {
-                            await vm.joinGame(
-                                gameId: gameId,
-                                team: team
-                            )
-                        }
+                        try await vm.joinGame(
+                            gameId: gameId,
+                            team: team
+                        )
                     },
                     
                     onLeave: {
-                        Task {
-                            await vm.leaveGame(
-                                gameId: gameId
-                            )
-                        }
+                        try await vm.leaveGame(
+                            gameId: gameId
+                        )
                     }
                 )
             }
@@ -1232,4 +1529,3 @@ struct MVPVoteRow: View {
         )
     }
 }
-

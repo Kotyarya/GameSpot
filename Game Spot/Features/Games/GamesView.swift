@@ -1,15 +1,6 @@
 import SwiftUI
 import Combine
 
-struct GameSection: Identifiable {
-    
-    let id = UUID()
-    
-    let title: String
-    
-    let games: [Game]
-}
-
 enum GamesMode: Equatable {
     
     case myGames
@@ -18,6 +9,9 @@ enum GamesMode: Equatable {
 }
 
 struct GamesView: View {
+
+    @EnvironmentObject private var router:
+        AppRouter
     
     // MARK: - Properties
     
@@ -27,18 +21,19 @@ struct GamesView: View {
     
     // MARK: - State
     
-    @StateObject private var viewModel =
-        GamesViewModel()
+    @StateObject private var viewModel: GamesViewModel
     
     // MARK: - Init
     
     init(
         mode: GamesMode,
-        parkName: String? = nil
+        parkName: String? = nil,
+        viewModel: GamesViewModel = GamesViewModel()
     ) {
         
         self.mode = mode
         self.parkName = parkName
+        _viewModel = StateObject(wrappedValue: viewModel)
     }
     
     // MARK: - Navigation Title
@@ -58,37 +53,10 @@ struct GamesView: View {
     // MARK: - Sections
     
     private var sections: [GameSection] {
-        
-        let calendar = Calendar.current
-        
-        let groupedGames = Dictionary(
-            grouping: viewModel.games
-        ) { game in
-            
-            calendar.startOfDay(
-                for: game.startsAt
-            )
-        }
-        
-        let sortedDates =
-            groupedGames.keys.sorted()
-        
-        return sortedDates.map { date in
-            
-            let games =
-                groupedGames[date]?
-                    .sorted {
-                        $0.startsAt < $1.startsAt
-                    }
-                ?? []
-            
-            return GameSection(
-                title: sectionTitle(
-                    for: date
-                ),
-                games: games
-            )
-        }
+
+        GameSectionBuilder.sections(
+            for: viewModel.games
+        )
     }
     
     // MARK: - Body
@@ -101,6 +69,11 @@ struct GamesView: View {
                 
                 loadingView
                 
+            } else if let error = viewModel.errorMessage,
+                      viewModel.games.isEmpty {
+
+                errorView(error)
+
             } else if viewModel.games.isEmpty {
                 
                 emptyView
@@ -142,11 +115,48 @@ struct GamesView: View {
     // MARK: - Empty View
     
     private var emptyView: some View {
-        
-        ContentUnavailableView(
-            "No Games",
-            systemImage: "sportscourt"
-        )
+
+        switch mode {
+
+        case .myGames:
+
+            ContentStateView(
+                title: "No Games Yet",
+                message: "Games you join or create will appear here. Explore a park to find your first game.",
+                systemImage: "sportscourt",
+                accessibilityIdentifier: "games.empty",
+                actionTitle: "Explore Parks"
+            ) {
+                router.selectedTab = .map
+            }
+
+        case .park:
+
+            ContentStateView(
+                title: "No Games at This Park",
+                message: "There are no upcoming games here yet. Go back to the park and create one.",
+                systemImage: "sportscourt",
+                accessibilityIdentifier: "games.empty",
+                actionTitle: "Refresh"
+            ) {
+                retryLoad()
+            }
+        }
+    }
+
+    private func errorView(
+        _ message: String
+    ) -> some View {
+
+        ContentStateView(
+            title: "Couldn’t Load Games",
+            message: message,
+            systemImage: "wifi.exclamationmark",
+            accessibilityIdentifier: "games.error",
+            actionTitle: "Try Again"
+        ) {
+            retryLoad()
+        }
     }
     
     // MARK: - Content View
@@ -167,6 +177,15 @@ struct GamesView: View {
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
+        }
+        .refreshable {
+            await viewModel.load(mode: mode)
+        }
+    }
+
+    private func retryLoad() {
+        Task {
+            await viewModel.retry()
         }
     }
     
@@ -221,37 +240,4 @@ struct GamesView: View {
         }
     }
     
-    // MARK: - Helpers
-    
-    private func sectionTitle(
-        for date: Date
-    ) -> String {
-        
-        let calendar = Calendar.current
-        
-        if calendar.isDateInToday(date) {
-            
-            return "Today"
-            
-        } else if calendar.isDateInTomorrow(date) {
-            
-            return "Tomorrow"
-            
-        } else if calendar.isDateInYesterday(date) {
-            
-            return "Yesterday"
-            
-        } else {
-            
-            let formatter = DateFormatter()
-            
-            formatter.dateFormat = "d MMMM"
-            
-            return formatter.string(
-                from: date
-            )
-        }
-    }
 }
-
-

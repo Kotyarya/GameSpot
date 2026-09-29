@@ -1,6 +1,5 @@
 import Foundation
 import Combine
-import Supabase
 import SwiftUI
 
 @MainActor
@@ -11,21 +10,16 @@ final class GamesViewModel: ObservableObject {
     @Published var games: [Game] = []
     
     @Published var isLoading = false
+
+    @Published private(set) var errorMessage: String?
     
     // MARK: - Services
     
-    private let service = GameService.shared
+    private let service: any GamesFetching
     
     // MARK: - Realtime
     
-    private var realtimeChannel:
-        RealtimeChannelV2?
-    
-    private var gamesSubscription:
-        RealtimeSubscription?
-    
-    private var membersSubscription:
-        RealtimeSubscription?
+    private let realtime: any GamesRealtimeSubscribing
     
     // MARK: - Properties
     
@@ -34,6 +28,21 @@ final class GamesViewModel: ObservableObject {
     private var hasSubscribed = false
     
     private var didFinishInitialLoad = false
+
+    private let minimumLoadingDuration: TimeInterval
+
+    // MARK: - Init
+
+    init(
+        service: any GamesFetching = GameService.shared,
+        realtime: any GamesRealtimeSubscribing =
+            SupabaseGamesRealtimeService(),
+        minimumLoadingDuration: TimeInterval = 1.0
+    ) {
+        self.service = service
+        self.realtime = realtime
+        self.minimumLoadingDuration = minimumLoadingDuration
+    }
     
     // MARK: - Load
     
@@ -57,30 +66,35 @@ final class GamesViewModel: ObservableObject {
                 isLoading = true
             }
         }
+
+        errorMessage = nil
         
         do {
             
             try await reloadGames()
+
+            try Task.checkCancellation()
             
             if !hasSubscribed {
-                
-                hasSubscribed = true
-                
                 await setupRealtimeSubscription()
             }
+
+            try Task.checkCancellation()
             
             didFinishInitialLoad = true
             
         } catch {
             
-            if error is CancellationError {
-                return
+            if !(error is CancellationError) {
+
+                errorMessage =
+                    "Couldn’t load games. Check your connection and try again."
+
+                AppLogger.error(
+                    "GamesViewModel load failed",
+                    error: error
+                )
             }
-            
-            AppLogger.error(
-                "GamesViewModel load failed",
-                error: error
-            )
         }
         
         if shouldShowLoader {
@@ -88,12 +102,10 @@ final class GamesViewModel: ObservableObject {
             let elapsed =
                 Date().timeIntervalSince(startTime)
             
-            let minimumDuration = 1.0
-            
-            if elapsed < minimumDuration {
+            if elapsed < minimumLoadingDuration {
                 
                 let remaining =
-                    minimumDuration - elapsed
+                    minimumLoadingDuration - elapsed
                 
                 try? await Task.sleep(
                     for: .seconds(remaining)
@@ -107,6 +119,15 @@ final class GamesViewModel: ObservableObject {
                 isLoading = false
             }
         }
+    }
+
+    func retry() async {
+
+        guard let currentMode else {
+            return
+        }
+
+        await load(mode: currentMode)
     }
     
     // MARK: - Reload
@@ -149,56 +170,16 @@ final class GamesViewModel: ObservableObject {
     // MARK: - Realtime
     
     private func setupRealtimeSubscription() async {
-        
-        await realtimeChannel?
-            .unsubscribe()
-        
-        realtimeChannel = SupabaseService
-            .shared
-            .client
-            .realtimeV2
-            .channel("games-list")
-        
-        gamesSubscription =
-        realtimeChannel?.onPostgresChange(
-            AnyAction.self,
-            schema: "public",
-            table: "games"
-        ) { _ in
-            
-            AppLogger.info(
-                "Games realtime event"
-            )
-            
-            Task { @MainActor [weak self] in
-                
-                await self?
-                    .handleRealtimeUpdate()
-            }
-        }
-        
-        membersSubscription =
-        realtimeChannel?.onPostgresChange(
-            AnyAction.self,
-            schema: "public",
-            table: "game_members"
-        ) { _ in
-            
-            AppLogger.info(
-                "Members realtime event"
-            )
-            
-            Task { @MainActor [weak self] in
-                
-                await self?
-                    .handleRealtimeUpdate()
-            }
-        }
-        
         do {
-            
-            try await realtimeChannel?
-                .subscribeWithError()
+            try await realtime.subscribe { [weak self] in
+                AppLogger.info(
+                    "Games realtime event"
+                )
+
+                await self?.handleRealtimeUpdate()
+            }
+
+            hasSubscribed = true
             
             AppLogger.success(
                 "Games realtime connected"
@@ -235,12 +216,10 @@ final class GamesViewModel: ObservableObject {
     // MARK: - Cleanup
     
     deinit {
-        
-        let channel = realtimeChannel
-        
+        let realtime = realtime
+
         Task { @MainActor in
-            
-            await channel?.unsubscribe()
+            await realtime.unsubscribe()
         }
     }
 }

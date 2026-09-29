@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 internal import Auth
 
 @MainActor
@@ -6,13 +7,26 @@ struct ProfileView: View {
 
     // MARK: - View Model
 
-    @StateObject private var viewModel =
-        ProfileViewModel()
+    @StateObject private var viewModel: ProfileViewModel
+
+    init(
+        viewModel: ProfileViewModel = ProfileViewModel()
+    ) {
+        _viewModel = StateObject(wrappedValue: viewModel)
+    }
+
+    @State private var selectedAvatarItem: PhotosPickerItem?
+    @State private var showsRemoveAvatarConfirmation = false
+    @State private var isEditingProfile = false
+    @State private var avatarJiggles = false
 
     // MARK: - Environment
 
     @EnvironmentObject var session:
         SessionManager
+
+    @Environment(\.accessibilityReduceMotion)
+    private var reduceMotion
 
     // MARK: - Overall Rank
 
@@ -24,28 +38,6 @@ struct ProfileView: View {
         return RankHelper.getRank(
             rating: rating
         )
-    }
-
-    // MARK: - Helpers
-
-    private func sportRank(
-        for rating: Int
-    ) -> Rank {
-
-        RankHelper.getRank(
-            rating: rating
-        )
-    }
-
-    private var fallbackIcon: some View {
-
-        Image(
-            systemName: "person.crop.circle.fill"
-        )
-        .resizable()
-        .scaledToFit()
-        .padding(18)
-        .foregroundStyle(rank.textColor)
     }
 
     // MARK: - Body
@@ -67,6 +59,53 @@ struct ProfileView: View {
                 userId: userId
             )
         }
+        .onChange(of: selectedAvatarItem) { _, item in
+            Task {
+                await replaceAvatar(from: item)
+            }
+        }
+        .onChange(of: isEditingProfile) { _, isEditing in
+            avatarJiggles = isEditing && !reduceMotion
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                NavigationLink {
+                    SettingsView()
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+                .accessibilityLabel("Settings")
+                .accessibilityIdentifier("profile.settings")
+            }
+
+            if viewModel.profile != nil {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(
+                        isEditingProfile ? "Done" : "Edit"
+                    ) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            isEditingProfile.toggle()
+                        }
+                    }
+                    .accessibilityIdentifier("profile.edit")
+                }
+            }
+        }
+        .confirmationDialog(
+            "Remove Profile Photo?",
+            isPresented: $showsRemoveAvatarConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Remove Photo", role: .destructive) {
+                Task {
+                    await removeAvatar()
+                }
+            }
+
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Your profile will use the default avatar.")
+        }
     }
 
     // MARK: - Content
@@ -76,7 +115,9 @@ struct ProfileView: View {
 
         if viewModel.isLoading {
 
-            LoadingView()
+            NativeLoadingView(
+                title: "Loading Profile"
+            )
                 .transition(
                     .opacity.combined(
                         with: .scale(scale: 0.98)
@@ -86,7 +127,25 @@ struct ProfileView: View {
         } else if let error =
                     viewModel.errorMessage {
 
-            Text(error)
+            ContentStateView(
+                title: "Couldn’t Load Profile",
+                message: error,
+                systemImage: "wifi.exclamationmark",
+                accessibilityIdentifier: "profile.error",
+                actionTitle: "Try Again",
+                action: retryProfileLoad
+            )
+
+        } else if viewModel.profile == nil {
+
+            ContentStateView(
+                title: "Profile Unavailable",
+                message: "Your profile isn’t available right now. Try loading it again.",
+                systemImage: "person.crop.circle.badge.exclamationmark",
+                accessibilityIdentifier: "profile.empty",
+                actionTitle: "Try Again",
+                action: retryProfileLoad
+            )
 
         } else {
 
@@ -113,168 +172,77 @@ struct ProfileView: View {
 
     // MARK: - Header
 
+    @ViewBuilder
     private var headerSection: some View {
 
-        ZStack {
-
-            rank.backgroundColor
-
-            PatternBackground(
-                symbol:
-                    viewModel.profile?
-                    .favoriteSport?
-                    .type?
-                    .iconName
-                ?? "trophy.fill",
-
-                color: .black,
-                opacity: 0.1
-            )
-
-            VStack {
-
-                overallRankBadge
-
-                avatarSection
-
-                usernameSection
-
-                globalRatingSection
-            }
-            .padding(.top, 32)
-        }
-        .frame(maxHeight: 463)
-        .clipped()
-        .clipShape(
-            RoundedRectangle(
-                cornerRadius: 48
-            )
-        )
-    }
-
-    // MARK: - Overall Rank
-
-    private var overallRankBadge: some View {
-
-        VStack(spacing: 8) {
-
-            ZStack {
-
-                Text(rank.title)
-                    .font(.title)
-                    .bold()
-                    .fontDesign(.rounded)
-                    .foregroundStyle(
-                        rank.textColor
-                    )
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-            }
-            .background(rank.borderColor)
-            .clipShape(
-                RoundedRectangle(
-                    cornerRadius: 12
-                )
-            )
-        }
-    }
-
-    // MARK: - Avatar
-
-    private var avatarSection: some View {
-
-        ZStack {
-
-            Circle()
-                .fill(
-                    rank.backgroundColor
-                        .opacity(0.25)
-                )
-
-            if let urlString =
-                viewModel.profile?.avatarUrl,
-               let url = URL(string: urlString) {
-
-                AsyncImage(url: url) { image in
-
-                    image
-                        .resizable()
-                        .scaledToFill()
-
-                } placeholder: {
-
-                    fallbackIcon
-                }
-
-            } else {
-
-                fallbackIcon
+        if let profile = viewModel.profile {
+            ProfileHeroView(
+                username: profile.username ?? "Nickname",
+                rating: profile.rating,
+                favoriteSportIcon:
+                    profile.favoriteSport?
+                        .type?
+                        .iconName
+                    ?? "trophy.fill"
+            ) {
+                editableAvatar(profile)
             }
         }
-        .frame(width: 120, height: 120)
-        .clipShape(Circle())
-        .overlay {
+    }
 
-            Circle()
-                .stroke(
-                    rank.borderColor,
-                    lineWidth: 2
+    @ViewBuilder
+    private func editableAvatar(
+        _ profile: Profile
+    ) -> some View {
+
+        let avatar = ProfileAvatarView(
+            username: profile.username ?? "Nickname",
+            avatarURL: profile.avatarUrl,
+            rank: rank
+        )
+
+        if isEditingProfile {
+            PhotosPicker(
+                selection: $selectedAvatarItem,
+                matching: .images
+            ) {
+                avatar
+                    .overlay(alignment: .topTrailing) {
+                        Image(systemName: "pencil")
+                            .font(.headline)
+                            .foregroundStyle(.white)
+                            .padding(9)
+                            .background(
+                                Color("AccentColor"),
+                                in: Circle()
+                            )
+                            .overlay {
+                                Circle()
+                                    .stroke(.white, lineWidth: 2)
+                            }
+                    }
+            }
+            .buttonStyle(.plain)
+            .disabled(viewModel.isUpdatingAvatar)
+            .rotationEffect(
+                .degrees(
+                    reduceMotion
+                    ? 0
+                    : avatarJiggles ? 1.5 : -1.5
                 )
-        }
-        .shadow(radius: 6)
-        .padding(.top, 12)
-    }
-
-    // MARK: - Username
-
-    private var usernameSection: some View {
-
-        Text(
-            viewModel.profile?.username
-            ?? "Nickname"
-        )
-        .font(.largeTitle)
-        .bold()
-    }
-
-    // MARK: - Global Rating
-
-    private var globalRatingSection: some View {
-
-        Gauge(
-            value: Double(
-                viewModel.profile?.rating ?? 0
-            ),
-
-            in: 0...9999
-        ) {
-
-            Image(systemName: "trophy.fill")
-                .foregroundStyle(rank.textColor)
-
-        } currentValueLabel: {
-
-            Text(
-                NumberFormatterHelper
-                    .formatRating(
-                        viewModel.profile?.rating ?? 0
-                    )
             )
-            .bold()
-            .foregroundStyle(rank.textColor)
+            .animation(
+                reduceMotion
+                ? .default
+                : .easeInOut(duration: 0.12)
+                    .repeatForever(autoreverses: true),
+                value: avatarJiggles
+            )
+            .accessibilityIdentifier("profile.avatar.choose")
+
+        } else {
+            avatar
         }
-        .gaugeStyle(.accessoryCircular)
-        .scaleEffect(1.5)
-        .padding(.top, 26)
-        .tint(rank.textColor)
-        .shadow(
-            color: rank.textColor.opacity(0.6),
-            radius: 12
-        )
-        .shadow(
-            color: rank.textColor.opacity(0.3),
-            radius: 20
-        )
     }
 
     // MARK: - Sections
@@ -285,96 +253,152 @@ struct ProfileView: View {
 
             overallProfileSection
 
-            recentMatchesSection
+            if viewModel.recentMatches.isEmpty,
+               viewModel.stats.isEmpty {
 
-            sportStatsSection
+                emptyActivitySection
 
-            signOutSection
+            } else {
+
+                recentMatchesSection
+
+                sportStatsSection
+            }
+
+            if isEditingProfile {
+                avatarEditingSection
+            }
         }
         .padding(.horizontal, 20)
         .padding(.top, 32)
+    }
+
+    private var emptyActivitySection: some View {
+
+        ContentStateView(
+            title: "No Activity Yet",
+            message: "Join your first game to start building match history and sport stats.",
+            systemImage: "figure.run",
+            accessibilityIdentifier: "profile.activity.empty"
+        )
+        .frame(minHeight: 220)
+        .glassEffect(
+            .regular.tint(.clear),
+            in: RoundedRectangle(
+                cornerRadius: 24,
+                style: .continuous
+            )
+        )
+    }
+
+    private func retryProfileLoad() {
+
+        guard let userId = session.user?.id else {
+            return
+        }
+
+        Task {
+            await viewModel.load(userId: userId)
+        }
     }
 
     // MARK: - Overall Profile
 
     private var overallProfileSection: some View {
 
-        VStack(alignment: .leading) {
+        ProfileSummaryCard(
+            rating: viewModel.profile?.rating ?? 0,
+            gamesPlayed:
+                viewModel.profile?.gamesPlayed ?? 0,
+            mvpCount: viewModel.profile?.mvpCount ?? 0,
+            perfPoints:
+                viewModel.profile?.perfPoints ?? 0
+        )
+    }
 
-            Text("Overall Profile")
-                .font(.largeTitle)
-                .bold()
+    // MARK: - Avatar Editing
 
-            VStack(spacing: 24) {
+    private var avatarEditingSection: some View {
 
-                ZStack {
+        VStack(spacing: 12) {
 
-                    Text(rank.title)
-                        .font(.title)
-                        .bold()
-                        .fontDesign(.rounded)
-                        .foregroundStyle(
-                            rank.textColor
-                        )
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
+            if viewModel.profile?.avatarUrl != nil {
+                Button(
+                    "Remove Profile Photo",
+                    systemImage: "trash",
+                    role: .destructive
+                ) {
+                    showsRemoveAvatarConfirmation = true
                 }
-                .background(rank.borderColor)
-                .clipShape(
-                    RoundedRectangle(
-                        cornerRadius: 10
-                    )
-                )
-
-                HStack(spacing: 0) {
-
-                    statItem(
-                        value:
-                            NumberFormatterHelper
-                            .formatRating(
-                                viewModel.profile?
-                                    .gamesPlayed ?? 0
-                            ),
-
-                        title: "Matches"
-                    )
-
-                    statItem(
-                        value:
-                            NumberFormatterHelper
-                            .formatRating(
-                                viewModel.profile?
-                                    .mvpCount ?? 0
-                            ),
-
-                        title: "MVP"
-                    )
-
-                    statItem(
-                        value:
-                            NumberFormatterHelper
-                            .formatRating(
-                                viewModel.profile?
-                                    .perfPoints ?? 0
-                            ),
-
-                        title: "Points"
-                    )
-                }
+                .buttonStyle(.bordered)
+                .disabled(viewModel.isUpdatingAvatar)
+                .accessibilityIdentifier("profile.avatar.remove")
             }
-            .padding(.vertical, 18)
-            .frame(maxWidth: .infinity)
-            .glassEffect(
-                .regular
-                    .tint(.clear)
-                    .interactive(true),
 
-                in: RoundedRectangle(
-                    cornerRadius: 24,
-                    style: .continuous
+            if viewModel.isUpdatingAvatar {
+
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text("Updating photo…")
+                }
+                .font(.subheadline)
+                .accessibilityIdentifier("profile.avatar.updating")
+            }
+
+            if let error = viewModel.avatarErrorMessage {
+
+                Label(
+                    error,
+                    systemImage: "exclamationmark.circle.fill"
                 )
-            )
+                .font(.subheadline)
+                .foregroundStyle(.red)
+                .accessibilityIdentifier("profile.avatar.error")
+            }
         }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+    }
+
+    private func replaceAvatar(
+        from item: PhotosPickerItem?
+    ) async {
+
+        defer {
+            selectedAvatarItem = nil
+        }
+
+        guard let item,
+              let userId = session.user?.id else {
+            return
+        }
+
+        do {
+            guard let data = try await item.loadTransferable(
+                type: Data.self
+            ),
+                  let image = UIImage(data: data) else {
+                viewModel.showAvatarSelectionError()
+                return
+            }
+
+            await viewModel.replaceAvatar(
+                with: image,
+                userId: userId
+            )
+
+        } catch {
+            viewModel.showAvatarSelectionError()
+        }
+    }
+
+    private func removeAvatar() async {
+
+        guard let userId = session.user?.id else {
+            return
+        }
+
+        await viewModel.removeAvatar(userId: userId)
     }
 
     // MARK: - Recent Matches
@@ -408,244 +432,9 @@ struct ProfileView: View {
     // MARK: - Sport Stats
 
     private var sportStatsSection: some View {
-
-        VStack(spacing: 32) {
-
-            ForEach(viewModel.stats) { stat in
-
-                sportStatCard(stat)
-            }
-        }
-    }
-
-    // MARK: - Sport Stat Card
-
-    private func sportStatCard(
-        _ stat: UserSportStats
-    ) -> some View {
-
-        let sportRank =
-            sportRank(for: stat.rating)
-
-        return VStack(alignment: .leading) {
-
-            Text(
-                "\(stat.sport.name.capitalized)"
-            )
-            .font(.largeTitle)
-            .bold()
-
-            VStack(spacing: 28) {
-
-                sportGaugeSection(
-                    stat: stat,
-                    rank: sportRank
-                )
-
-                sportRankSection(
-                    rank: sportRank
-                )
-
-                sportStatsItems(
-                    stat: stat
-                )
-            }
-            .padding(.vertical, 18)
-            .frame(maxWidth: .infinity)
-            .glassEffect(
-                .regular
-                    .tint(
-                        sportRank
-                            .backgroundColor
-                            .opacity(0.15)
-                    )
-                    .interactive(true),
-
-                in: RoundedRectangle(
-                    cornerRadius: 24,
-                    style: .continuous
-                )
-            )
-        }
-    }
-
-    // MARK: - Sport Gauge
-
-    private func sportGaugeSection(
-        stat: UserSportStats,
-        rank: Rank
-    ) -> some View {
-
-        Gauge(
-            value: Double(stat.rating),
-            in: 0...9999
-        ) {
-
-            Image(
-                systemName: "trophy.fill"
-            )
-            .foregroundStyle(
-                rank.borderColor
-            )
-
-        } currentValueLabel: {
-
-            Text(
-                NumberFormatterHelper
-                    .formatRating(
-                        stat.rating
-                    )
-            )
-            .bold()
-            .foregroundStyle(
-                rank.borderColor
-            )
-        }
-        .gaugeStyle(.accessoryCircular)
-        .scaleEffect(1.45)
-        .padding(.top, 20)
-        .tint(rank.borderColor)
-        .shadow(
-            color:
-                rank.textColor
-                .opacity(0.3),
-
-            radius: 10
+        ProfileSportStatsSection(
+            stats: viewModel.stats
         )
-    }
-
-    // MARK: - Sport Rank
-
-    private func sportRankSection(
-        rank: Rank
-    ) -> some View {
-
-        ZStack {
-
-            Text(rank.title)
-                .font(.title2)
-                .bold()
-                .fontDesign(.rounded)
-                .foregroundStyle(
-                    rank.textColor
-                )
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-        }
-        .background(
-            rank.borderColor
-        )
-        .clipShape(
-            RoundedRectangle(
-                cornerRadius: 10
-            )
-        )
-        .shadow(
-            color:
-                rank.textColor
-                .opacity(0.25),
-
-            radius: 8
-        )
-    }
-
-    // MARK: - Sport Stats Items
-
-    private func sportStatsItems(
-        stat: UserSportStats
-    ) -> some View {
-
-        HStack(spacing: 0) {
-
-            statItem(
-                value:
-                    NumberFormatterHelper
-                    .formatRating(
-                        stat.gamesPlayed
-                    ),
-
-                title: "Matches"
-            )
-
-            statItem(
-                value:
-                    NumberFormatterHelper
-                    .formatRating(
-                        stat.mvpCount
-                    ),
-
-                title: "MVP"
-            )
-
-            statItem(
-                value:
-                    NumberFormatterHelper
-                    .formatRating(
-                        stat.perfPoints
-                    ),
-
-                title: "Points"
-            )
-        }
-    }
-
-    // MARK: - Sign Out
-
-    private var signOutSection: some View {
-
-        Button {
-
-            Task {
-                await session.signOut()
-            }
-
-        } label: {
-
-            HStack(
-                alignment: .center,
-                spacing: 6
-            ) {
-
-                Image(
-                    systemName:
-                        "rectangle.portrait.and.arrow.right"
-                )
-                .font(.system(size: 18))
-
-                Text("Sign Out")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-        }
-        .buttonStyle(.glassProminent)
-        .tint(.red.opacity(0.2))
-        .foregroundStyle(
-            .red
-        )
-    }
-
-    // MARK: - Stat Item
-
-    @ViewBuilder
-    private func statItem(
-        value: String,
-        title: String
-    ) -> some View {
-
-        VStack {
-
-            Text(value)
-                .font(.title)
-                .bold()
-
-            Text(title)
-                .font(.headline)
-                .fontWeight(.semibold)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
     }
 }
 

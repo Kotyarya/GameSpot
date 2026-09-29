@@ -446,8 +446,3 @@ struct OnBoardingView: View {
             .ignoresSafeArea()
     }
 }
-
-#Preview {
-
-    OnBoardingView()
-}

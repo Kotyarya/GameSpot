@@ -1,6 +1,5 @@
 import Foundation
 import Combine
-import Supabase
 import SwiftUI
 
 @MainActor
@@ -9,6 +8,8 @@ final class GameInfoViewModel: ObservableObject {
     // MARK: - State
     
     @Published var details: GameDetails?
+
+    @Published private(set) var gameMembers: [GameMember] = []
     
     @Published var weather: Weather?
     
@@ -20,37 +21,44 @@ final class GameInfoViewModel: ObservableObject {
     
     // MARK: - Services
     
-    private let gameService =
-        GameService.shared
-    
-    private let weatherService =
-        WeatherService.shared
-    
-    // MARK: - Realtime
-    
-    private var realtimeChannel:
-        RealtimeChannelV2?
-    
-    private var gamesSubscription:
-        RealtimeSubscription?
-    
-    private var membersSubscription:
-        RealtimeSubscription?
-    
-    private var votesSubscription:
-        RealtimeSubscription?
+    private let gameService: any GameInfoServing
+
+    private let weatherService: any WeatherFetching
+
+    private let realtime: any GameInfoRealtimeSubscribing
     
     // MARK: - Properties
     
     private var subscribedGameId: UUID?
+
+    // MARK: - Init
+
+    init(
+        gameService: any GameInfoServing = GameService.shared,
+        weatherService: any WeatherFetching = WeatherService.shared,
+        realtime: any GameInfoRealtimeSubscribing = SupabaseGameInfoRealtimeService()
+    ) {
+
+        self.gameService = gameService
+        self.weatherService = weatherService
+        self.realtime = realtime
+    }
     
     // MARK: - Load
     
     func load(
         gameId: UUID
     ) async {
+
+        guard !isLoading else {
+            return
+        }
         
         isLoading = true
+
+        defer {
+            isLoading = false
+        }
         
         errorMessage = nil
         
@@ -60,28 +68,44 @@ final class GameInfoViewModel: ObservableObject {
                 gameId: gameId
             )
             
-            try await loadWeather()
+            do {
+
+                try await loadWeather()
+
+            } catch {
+
+                if error is CancellationError {
+                    throw error
+                }
+
+                weather = nil
+
+                AppLogger.warning(
+                    "Weather unavailable for game details"
+                )
+            }
+
+            try Task.checkCancellation()
             
             await setupRealtimeIfNeeded(
                 gameId: gameId
             )
+
+            try Task.checkCancellation()
             
         } catch {
             
-            if error is CancellationError {
-                return
+            if !(error is CancellationError) {
+                errorMessage =
+                    "Couldn’t load this game. Check your connection and try again."
+
+                AppLogger.error(
+                    "GameInfoViewModel load failed",
+                    error: error
+                )
             }
-            
-            errorMessage =
-                error.localizedDescription
-            
-            AppLogger.error(
-                "GameInfoViewModel load failed",
-                error: error
-            )
         }
         
-        isLoading = false
     }
     
     // MARK: - Load Details
@@ -89,12 +113,18 @@ final class GameInfoViewModel: ObservableObject {
     private func loadGameDetails(
         gameId: UUID
     ) async throws {
-        
-        details =
-            try await gameService
-                .fetchGameDetails(
-                    gameId: gameId
-                )
+
+        let loadedDetails = try await gameService
+            .fetchGameDetails(
+                gameId: gameId
+            )
+        let loadedMembers = try await gameService
+            .fetchGameMembers(
+                gameId: gameId
+            )
+
+        details = loadedDetails
+        gameMembers = loadedMembers
     }
     
     // MARK: - Load Weather
@@ -125,108 +155,28 @@ final class GameInfoViewModel: ObservableObject {
             return
         }
         
-        subscribedGameId = gameId
-        
-        await setupRealtimeSubscription(
-            gameId: gameId
-        )
-    }
-    
-    // MARK: - Realtime
-    
-    private func setupRealtimeSubscription(
-        gameId: UUID
-    ) async {
-        
-        await realtimeChannel?
-            .unsubscribe()
-        
-        realtimeChannel = SupabaseService
-            .shared
-            .client
-            .realtimeV2
-            .channel("game-info-\(gameId)")
-        
-        observeRealtime(
-            table: "games",
-            filter: "id=eq.\(gameId.uuidString)",
-            eventName: "Games"
-        )
-        
-        observeRealtime(
-            table: "game_members",
-            filter: "game_id=eq.\(gameId.uuidString)",
-            eventName: "Members"
-        )
-        
-        observeRealtime(
-            table: "game_mvp_votes",
-            filter: "game_id=eq.\(gameId.uuidString)",
-            eventName: "Votes"
-        )
-        
         do {
-            
-            try await realtimeChannel?
-                .subscribeWithError()
-            
+
+            try await realtime.subscribe(
+                gameId: gameId
+            ) { [weak self] in
+                await self?.handleRealtimeUpdate()
+            }
+
+            subscribedGameId = gameId
+
             AppLogger.success(
                 "Game realtime connected"
             )
-            
+
         } catch {
-            
-            if error is CancellationError {
-                return
-            }
-            
-            AppLogger.error(
-                "Game realtime subscribe failed",
-                error: error
-            )
-        }
-    }
-    
-    // MARK: - Observe Realtime
-    
-    private func observeRealtime(
-        table: String,
-        filter: String,
-        eventName: String
-    ) {
-        
-        let subscription =
-            realtimeChannel?.onPostgresChange(
-                AnyAction.self,
-                schema: "public",
-                table: table,
-                filter: filter
-            ) { [weak self] _ in
-                
-                AppLogger.info(
-                    "\(eventName) realtime event"
+
+            if !(error is CancellationError) {
+                AppLogger.error(
+                    "Game realtime subscribe failed",
+                    error: error
                 )
-                
-                Task { @MainActor in
-                    
-                    await self?
-                        .handleRealtimeUpdate()
-                }
             }
-        
-        switch table {
-            
-        case "games":
-            gamesSubscription = subscription
-            
-        case "game_members":
-            membersSubscription = subscription
-            
-        case "game_mvp_votes":
-            votesSubscription = subscription
-            
-        default:
-            break
         }
     }
     
@@ -240,15 +190,19 @@ final class GameInfoViewModel: ObservableObject {
         
         do {
             
-            let updatedDetails =
-                try await gameService
-                    .fetchGameDetails(
-                        gameId: gameId
-                    )
+            let updatedDetails = try await gameService
+                .fetchGameDetails(
+                    gameId: gameId
+                )
+            let updatedMembers = try await gameService
+                .fetchGameMembers(
+                    gameId: gameId
+                )
             
             withAnimation(.spring) {
                 
                 details = updatedDetails
+                gameMembers = updatedMembers
             }
             
             AppLogger.success(
@@ -263,13 +217,48 @@ final class GameInfoViewModel: ObservableObject {
             )
         }
     }
+
+    // MARK: - Manual Refresh
+
+    func refreshDetails(
+        gameId: UUID
+    ) async {
+
+        do {
+
+            let updatedDetails = try await gameService
+                .fetchGameDetails(
+                    gameId: gameId
+                )
+            let updatedMembers = try await gameService
+                .fetchGameMembers(
+                    gameId: gameId
+                )
+
+            withAnimation(.spring) {
+                details = updatedDetails
+                gameMembers = updatedMembers
+            }
+
+        } catch {
+
+            if !(error is CancellationError) {
+                AppLogger.error(
+                    "Game details refresh failed",
+                    error: error
+                )
+            }
+        }
+    }
     
     // MARK: - Join Game
     
     func joinGame(
         gameId: UUID,
         team: Team
-    ) async {
+    ) async throws {
+
+        errorMessage = nil
         
         do {
             
@@ -278,16 +267,22 @@ final class GameInfoViewModel: ObservableObject {
                     gameId: gameId,
                     team: team
                 )
+
+            await refreshDetailsAfterTeamChange(
+                gameId: gameId
+            )
             
         } catch {
             
             errorMessage =
-                error.localizedDescription
+                "Couldn’t join this game. Check your connection and try again."
             
             AppLogger.error(
                 "Join game failed",
                 error: error
             )
+
+            throw error
         }
     }
     
@@ -295,7 +290,9 @@ final class GameInfoViewModel: ObservableObject {
     
     func leaveGame(
         gameId: UUID
-    ) async {
+    ) async throws {
+
+        errorMessage = nil
         
         do {
             
@@ -303,14 +300,45 @@ final class GameInfoViewModel: ObservableObject {
                 .leaveGame(
                     gameId: gameId
                 )
+
+            await refreshDetailsAfterTeamChange(
+                gameId: gameId
+            )
             
         } catch {
             
             errorMessage =
-                error.localizedDescription
+                "Couldn’t leave this game. Check your connection and try again."
             
             AppLogger.error(
                 "Leave game failed",
+                error: error
+            )
+
+            throw error
+        }
+    }
+
+    private func refreshDetailsAfterTeamChange(
+        gameId: UUID
+    ) async {
+
+        do {
+
+            let updatedDetails = try await gameService
+                .fetchGameDetails(gameId: gameId)
+            let updatedMembers = try await gameService
+                .fetchGameMembers(gameId: gameId)
+
+            withAnimation(.spring) {
+                details = updatedDetails
+                gameMembers = updatedMembers
+            }
+
+        } catch {
+
+            AppLogger.error(
+                "Team changed, but game reload failed",
                 error: error
             )
         }
@@ -325,6 +353,8 @@ final class GameInfoViewModel: ObservableObject {
         guard let details else {
             return
         }
+
+        errorMessage = nil
         
         isSubmittingVote = true
         
@@ -344,7 +374,7 @@ final class GameInfoViewModel: ObservableObject {
         } catch {
             
             errorMessage =
-                error.localizedDescription
+                "Couldn’t submit your vote. Check your connection and try again."
             
             AppLogger.error(
                 "Submit MVP vote failed",
@@ -357,11 +387,11 @@ final class GameInfoViewModel: ObservableObject {
     
     deinit {
         
-        let channel = realtimeChannel
+        let realtime = realtime
         
         Task { @MainActor in
             
-            await channel?.unsubscribe()
+            await realtime.unsubscribe()
         }
     }
 }

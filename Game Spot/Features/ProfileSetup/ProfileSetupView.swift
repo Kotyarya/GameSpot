@@ -6,8 +6,13 @@ struct ProfileSetupView: View {
 
     // MARK: - View Model
 
-    @StateObject private var viewModel =
-        ProfileSetupViewModel()
+    @StateObject private var viewModel: ProfileSetupViewModel
+
+    init(
+        viewModel: ProfileSetupViewModel = ProfileSetupViewModel()
+    ) {
+        _viewModel = StateObject(wrappedValue: viewModel)
+    }
 
     // MARK: - Environment
 
@@ -34,7 +39,7 @@ struct ProfileSetupView: View {
 
             backgroundView
 
-            contentView
+            setupContent
         }
         .task {
             await viewModel.loadSports()
@@ -71,6 +76,45 @@ struct ProfileSetupView: View {
 
     // MARK: - Content
 
+    @ViewBuilder
+    private var setupContent: some View {
+
+        if (!viewModel.didAttemptSportsLoad
+            || viewModel.isLoadingSports),
+           viewModel.sports.isEmpty {
+
+            LoadingView()
+                .accessibilityIdentifier("profileSetup.sports.loading")
+
+        } else if let error = viewModel.sportsErrorMessage,
+                  viewModel.sports.isEmpty {
+
+            ContentStateView(
+                title: "Couldn’t Load Sports",
+                message: error,
+                systemImage: "wifi.exclamationmark",
+                accessibilityIdentifier: "profileSetup.sports.error",
+                actionTitle: "Try Again",
+                action: retrySportsLoad
+            )
+
+        } else if viewModel.sports.isEmpty {
+
+            ContentStateView(
+                title: "No Sports Available",
+                message: "Sports aren’t available right now. Refresh before completing your profile.",
+                systemImage: "sportscourt",
+                accessibilityIdentifier: "profileSetup.sports.empty",
+                actionTitle: "Refresh",
+                action: retrySportsLoad
+            )
+
+        } else {
+
+            contentView
+        }
+    }
+
     private var contentView: some View {
 
         ScrollView(showsIndicators: false) {
@@ -86,6 +130,12 @@ struct ProfileSetupView: View {
                 Spacer(minLength: 40)
             }
             .padding(.horizontal, 20)
+        }
+    }
+
+    private func retrySportsLoad() {
+        Task {
+            await viewModel.loadSports()
         }
     }
 
@@ -226,16 +276,31 @@ struct ProfileSetupView: View {
 
                 Task {
 
-                    if let data = try? await newItem?
-                        .loadTransferable(type: Data.self),
-
-                       let uiImage = UIImage(data: data) {
-
-                        await MainActor.run {
-                            viewModel.avatarImage = uiImage
+                    do {
+                        guard let data = try await newItem?
+                            .loadTransferable(type: Data.self),
+                              let uiImage = UIImage(data: data) else {
+                            throw AvatarSelectionError.invalidImage
                         }
+
+                        viewModel.avatarImage = uiImage
+                        viewModel.errorMessage = nil
+
+                    } catch {
+                        viewModel.errorMessage =
+                            "Couldn’t load the selected photo."
                     }
                 }
+            }
+
+            if avatarImage != nil {
+
+                Button("Remove Photo", role: .destructive) {
+                    selectedItem = nil
+                    viewModel.avatarImage = nil
+                }
+                .font(.subheadline.weight(.semibold))
+                .disabled(viewModel.isLoading)
             }
         }
     }
@@ -328,7 +393,7 @@ struct ProfileSetupView: View {
                 Text(
                     available
                     ? "Username available"
-                    : "Username already taken"
+                    : "Username unavailable"
                 )
                 .font(.subheadline)
                 .foregroundStyle(
@@ -476,11 +541,16 @@ struct ProfileSetupView: View {
                     return
                 }
 
-                try? await viewModel.submit(
-                    userId: userId
-                )
+                do {
+                    try await viewModel.submit(
+                        userId: userId
+                    )
 
-                await session.loadProfile()
+                    await session.loadProfile()
+
+                } catch {
+                    // The view model keeps the actionable message on screen.
+                }
             }
 
         } label: {
@@ -512,6 +582,7 @@ struct ProfileSetupView: View {
     }
 }
 
-#Preview {
-    ProfileSetupView()
+private enum AvatarSelectionError: Error {
+
+    case invalidImage
 }

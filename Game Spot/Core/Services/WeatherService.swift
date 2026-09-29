@@ -1,5 +1,15 @@
 import Foundation
 
+@MainActor
+protocol WeatherFetching: AnyObject {
+
+    func fetchWeather(
+        latitude: Double,
+        longitude: Double,
+        date: Date
+    ) async throws -> Weather
+}
+
 final class WeatherService: @unchecked Sendable {
 
     // MARK: - Shared
@@ -99,3 +109,5 @@ final class WeatherService: @unchecked Sendable {
         )
     }
 }
+
+extension WeatherService: WeatherFetching {}

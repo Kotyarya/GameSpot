@@ -36,6 +36,7 @@ enum TestFixtures {
 
     static func game(
         id: UUID = gameId,
+        creatorId: UUID? = userId,
         startsAt: Date,
         durationMinutes: Int = 60,
         maxPlayers: Int = 10,
@@ -43,11 +44,15 @@ enum TestFixtures {
         isFinished: Bool = false,
         isInProgress: Bool = false
     ) -> Game {
-        decode(Game.self, from: """
+        let creatorJSON = creatorId
+            .map { "\"\($0.uuidString)\"" }
+            ?? "null"
+
+        return decode(Game.self, from: """
         {
             "id": "\(id.uuidString)",
             "park_id": "\(parkId.uuidString)",
-            "creator_id": "\(userId.uuidString)",
+            "creator_id": \(creatorJSON),
             "sport": {
                 "id": "\(sportFootballId.uuidString)",
                 "name": "football"
@@ -69,14 +74,16 @@ enum TestFixtures {
     static func profile(
         isOnboarded: Bool = true,
         isProfileCompleted: Bool = true,
-        rating: Int = 500
+        rating: Int = 500,
+        avatarUrl: String? = nil
     ) -> Profile {
         let now = iso8601(Date())
+        let avatarJSON = avatarUrl.map { "\"\($0)\"" } ?? "null"
         return decode(Profile.self, from: """
         {
             "id": "\(userId.uuidString)",
             "username": "testuser",
-            "avatar_url": null,
+            "avatar_url": \(avatarJSON),
             "favorite_sport_id": "\(sportFootballId.uuidString)",
             "sports": {
                 "id": "\(sportFootballId.uuidString)",
@@ -129,6 +136,10 @@ enum TestFixtures {
         maxPlayers: Int = 10,
         joinedPlayers: Int = 4,
         isFinished: Bool = false,
+        isInProgress: Bool = false,
+        isProcessed: Bool = false,
+        mvpVotingOpen: Bool = false,
+        hasVoted: Bool = false,
         players: [Player]? = nil
     ) -> GameDetails {
         let roster = players ?? [
@@ -161,10 +172,10 @@ enum TestFixtures {
             "players": [\(playersJSON)],
             "is_joined": false,
             "mvp_player": null,
-            "is_in_progress": false,
-            "is_processed": false,
-            "mvp_voting_open": false,
-            "has_voted": false
+            "is_in_progress": \(isInProgress),
+            "is_processed": \(isProcessed),
+            "mvp_voting_open": \(mvpVotingOpen),
+            "has_voted": \(hasVoted)
         }
         """)
     }

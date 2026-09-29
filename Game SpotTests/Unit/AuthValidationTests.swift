@@ -2,7 +2,7 @@
 //  AuthValidationTests.swift
 //  Game SpotTests
 //
-//  Validates AuthViewModel.isValid and AuthView sign-up password rules.
+//  Validates AuthViewModel.isValid and shared password rules.
 //
 
 import XCTest
@@ -38,10 +38,10 @@ final class AuthValidationTests: XCTestCase {
         XCTAssertNil(viewModel.errorMessage)
     }
 
-    // MARK: - Sign Up Rules (AuthView)
+    // MARK: - Shared Password Rules
 
     func testPasswordChecksRequireEightCharacters() {
-        let checks = AuthValidationLogic.passwordChecks(
+        let checks = PasswordPolicy.checks(
             for: "Short1"
         )
 
@@ -49,40 +49,31 @@ final class AuthValidationTests: XCTestCase {
     }
 
     func testPasswordChecksRequireUppercaseAndNumber() {
-        let checks = AuthValidationLogic.passwordChecks(
+        let checks = PasswordPolicy.checks(
             for: "password1"
         )
 
         XCTAssertFalse(checks[1].passed)
 
-        let validChecks = AuthValidationLogic.passwordChecks(
+        let validChecks = PasswordPolicy.checks(
             for: "Password1"
         )
 
         XCTAssertTrue(validChecks.allSatisfy(\.passed))
     }
 
-    @MainActor
-    func testCanSubmitSignUpRequiresMatchingPasswords() {
-        let viewModel = AuthViewModel()
-        viewModel.email = "user@example.com"
-        viewModel.password = "Password1"
-
+    func testSharedPolicyRequiresMatchingPasswords() {
         XCTAssertFalse(
-            AuthValidationLogic.canSubmitSignUp(
-                email: viewModel.email,
-                password: viewModel.password,
-                confirmPassword: "Password2",
-                viewModelIsValid: viewModel.isValid
+            PasswordPolicy.passwordsMatch(
+                "Password1",
+                confirmation: "Password2"
             )
         )
 
         XCTAssertTrue(
-            AuthValidationLogic.canSubmitSignUp(
-                email: viewModel.email,
-                password: viewModel.password,
-                confirmPassword: "Password1",
-                viewModelIsValid: viewModel.isValid
+            PasswordPolicy.passwordsMatch(
+                "Password1",
+                confirmation: "Password1"
             )
         )
     }

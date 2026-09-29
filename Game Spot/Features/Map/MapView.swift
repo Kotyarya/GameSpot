@@ -5,11 +5,17 @@ struct MapView: View {
 
     // MARK: - View Models
 
-    @StateObject private var viewModel =
-        MapViewModel()
+    @StateObject private var viewModel: MapViewModel
 
-    @StateObject private var parkViewModel =
-        ParkDetailsViewModel()
+    @StateObject private var parkViewModel: ParkDetailsViewModel
+
+    init(
+        viewModel: MapViewModel = MapViewModel(),
+        parkViewModel: ParkDetailsViewModel = ParkDetailsViewModel()
+    ) {
+        _viewModel = StateObject(wrappedValue: viewModel)
+        _parkViewModel = StateObject(wrappedValue: parkViewModel)
+    }
 
     // MARK: - Map State
 
@@ -76,14 +82,62 @@ private extension MapView {
 
     var mapContent: some View {
 
-        Map(
-            position: $position,
-            selection: $selectedPark
-        ) {
+        ZStack {
 
-            parksMarkers
+            Map(
+                position: $position,
+                selection: $selectedPark
+            ) {
 
-            UserAnnotation()
+                parksMarkers
+
+                UserAnnotation()
+            }
+
+            mapStateOverlay
+        }
+    }
+
+    @ViewBuilder
+    var mapStateOverlay: some View {
+
+        if viewModel.isLoading,
+           viewModel.parks.isEmpty {
+
+            LoadingView()
+                .background(.ultraThinMaterial)
+                .accessibilityIdentifier("map.loading")
+
+        } else if let error = viewModel.errorMessage,
+                  viewModel.parks.isEmpty {
+
+            ContentStateView(
+                title: "Couldn’t Load Parks",
+                message: error,
+                systemImage: "wifi.exclamationmark",
+                accessibilityIdentifier: "map.error",
+                actionTitle: "Try Again"
+            ) {
+                Task {
+                    await viewModel.load()
+                }
+            }
+            .background(.ultraThinMaterial)
+
+        } else if viewModel.parks.isEmpty {
+
+            ContentStateView(
+                title: "No Parks Available",
+                message: "There are no active parks to show right now. Try again later.",
+                systemImage: "mappin.slash",
+                accessibilityIdentifier: "map.empty",
+                actionTitle: "Refresh"
+            ) {
+                Task {
+                    await viewModel.load()
+                }
+            }
+            .background(.ultraThinMaterial)
         }
     }
 
@@ -182,9 +236,4 @@ private extension MapView {
             sheetDetent = .height(90)
         }
     }
-}
-
-#Preview {
-
-    MapView()
 }

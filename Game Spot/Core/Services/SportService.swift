@@ -1,6 +1,11 @@
 import Foundation
 import Supabase
 
+protocol SportFetching: AnyObject, Sendable {
+
+    func fetchSports() async throws -> [Sport]
+}
+
 final class SportService: @unchecked Sendable {
     static let shared = SportService()
     
@@ -18,3 +23,5 @@ final class SportService: @unchecked Sendable {
             .value
     }
 }
+
+extension SportService: SportFetching {}

@@ -1,20 +1,11 @@
-//
-//  GameInfoViewModelTests.swift
-//  Game SpotTests
-//
-//  ViewModel tests for game detail loading and MVP voting state.
-//
-
 import XCTest
 @testable import Game_Spot
 
 @MainActor
 final class GameInfoViewModelTests: XCTestCase {
 
-    // MARK: - Initial State
-
     func testInitialState() {
-        let viewModel = GameInfoViewModel()
+        let viewModel = makeViewModel()
 
         XCTAssertNil(viewModel.details)
         XCTAssertNil(viewModel.weather)
@@ -23,65 +14,443 @@ final class GameInfoViewModelTests: XCTestCase {
         XCTAssertFalse(viewModel.isSubmittingVote)
     }
 
-    // MARK: - MVP Voting
-
-    func testSubmitVoteWithoutDetailsDoesNotSubmit() async {
-        let viewModel = GameInfoViewModel()
-        viewModel.details = nil
-
-        await viewModel.submitVote(
-            playerId: TestFixtures.userId
+    func testLoadPublishesDetailsWeatherAndSubscribes() async {
+        let startsAt = Date(timeIntervalSince1970: 1_800_000_000)
+        let details = TestFixtures.gameDetails(startsAt: startsAt)
+        let member = GameMember(
+            userId: TestFixtures.userId,
+            team: .alpha
+        )
+        let service = GameInfoServiceStub(
+            detailsResult: .success(details),
+            membersResult: .success([member])
+        )
+        let weatherService = WeatherServiceStub(
+            result: .success(
+                Weather(temperature: 18, windSpeed: 7, rainChance: 20)
+            )
+        )
+        let realtime = GameInfoRealtimeStub()
+        let viewModel = makeViewModel(
+            gameService: service,
+            weatherService: weatherService,
+            realtime: realtime
         )
 
+        await viewModel.load(gameId: TestFixtures.gameId)
+
+        XCTAssertEqual(viewModel.details?.id, TestFixtures.gameId)
+        XCTAssertEqual(viewModel.gameMembers, [member])
+        XCTAssertEqual(viewModel.weather?.temperature, 18)
+        XCTAssertEqual(weatherService.receivedLatitude, 50.45)
+        XCTAssertEqual(weatherService.receivedLongitude, 30.52)
+        XCTAssertEqual(weatherService.receivedDate, startsAt)
+        XCTAssertEqual(realtime.receivedGameIds, [TestFixtures.gameId])
+        XCTAssertFalse(viewModel.isLoading)
+        XCTAssertNil(viewModel.errorMessage)
+    }
+
+    func testLoadFailureStopsLoadingWithoutWeatherOrRealtime() async {
+        let service = GameInfoServiceStub(
+            detailsResult: .failure(GameInfoTestError.failed)
+        )
+        let weatherService = WeatherServiceStub()
+        let realtime = GameInfoRealtimeStub()
+        let viewModel = makeViewModel(
+            gameService: service,
+            weatherService: weatherService,
+            realtime: realtime
+        )
+
+        await viewModel.load(gameId: TestFixtures.gameId)
+
+        XCTAssertNil(viewModel.details)
+        XCTAssertEqual(
+            viewModel.errorMessage,
+            "Couldn’t load this game. Check your connection and try again."
+        )
+        XCTAssertEqual(weatherService.fetchCallCount, 0)
+        XCTAssertTrue(realtime.receivedGameIds.isEmpty)
+        XCTAssertFalse(viewModel.isLoading)
+    }
+
+    func testWeatherFailureKeepsGameDetailsAvailable() async {
+        let details = TestFixtures.gameDetails(
+            startsAt: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+        let service = GameInfoServiceStub(
+            detailsResult: .success(details)
+        )
+        let weatherService = WeatherServiceStub(
+            result: .failure(GameInfoTestError.failed)
+        )
+        let viewModel = makeViewModel(
+            gameService: service,
+            weatherService: weatherService
+        )
+
+        await viewModel.load(gameId: TestFixtures.gameId)
+
+        XCTAssertEqual(viewModel.details?.id, TestFixtures.gameId)
+        XCTAssertNil(viewModel.weather)
+        XCTAssertNil(viewModel.errorMessage)
+    }
+
+    func testCancelledLoadAlwaysStopsLoading() async {
+        let service = CancellingGameInfoServiceStub()
+        let viewModel = makeViewModel(gameService: service)
+
+        let task = Task {
+            await viewModel.load(gameId: TestFixtures.gameId)
+        }
+
+        while !service.isFetchingDetails {
+            await Task.yield()
+        }
+
+        task.cancel()
+        await task.value
+
+        XCTAssertFalse(viewModel.isLoading)
+        XCTAssertNil(viewModel.errorMessage)
+    }
+
+    func testSubmitVoteWithoutDetailsDoesNotCallService() async {
+        let service = GameInfoServiceStub()
+        let viewModel = makeViewModel(gameService: service)
+
+        await viewModel.submitVote(playerId: TestFixtures.userId)
+
+        XCTAssertEqual(service.voteCallCount, 0)
         XCTAssertFalse(viewModel.isSubmittingVote)
     }
 
-    func testSubmitVoteSetsSubmittingFlagWhileRunning() async {
-        let viewModel = GameInfoViewModel()
+    func testSubmitVoteKeepsFlagVisibleAndForwardsArguments() async {
+        let service = SuspendedVoteGameInfoServiceStub()
+        let viewModel = makeViewModel(gameService: service)
         viewModel.details = TestFixtures.gameDetails(
-            startsAt: Date().addingTimeInterval(3_600)
+            startsAt: Date(timeIntervalSince1970: 1_800_000_000)
         )
+        let playerId = UUID()
 
-        let voteTask = Task {
-            await viewModel.submitVote(
-                playerId: UUID()
+        let task = Task {
+            await viewModel.submitVote(playerId: playerId)
+        }
+
+        while !service.isVoteSuspended {
+            await Task.yield()
+        }
+
+        XCTAssertTrue(viewModel.isSubmittingVote)
+
+        service.resumeVote()
+        await task.value
+
+        XCTAssertEqual(service.receivedVoteGameId, TestFixtures.gameId)
+        XCTAssertEqual(service.receivedVotedUserId, playerId)
+        XCTAssertFalse(viewModel.isSubmittingVote)
+    }
+
+    func testJoinFailureShowsErrorAndThrows() async {
+        let service = GameInfoServiceStub(joinError: GameInfoTestError.failed)
+        let viewModel = makeViewModel(gameService: service)
+
+        do {
+            try await viewModel.joinGame(
+                gameId: TestFixtures.gameId,
+                team: .alpha
+            )
+            XCTFail("Join should throw the service error")
+        } catch {
+            XCTAssertEqual(
+                error.localizedDescription,
+                GameInfoTestError.failed.localizedDescription
             )
         }
 
-        try? await Task.sleep(for: .milliseconds(30))
-
-        // Flag should return to false after completion (success or failure).
-        await voteTask.value
-        XCTAssertFalse(viewModel.isSubmittingVote)
+        XCTAssertEqual(service.receivedJoinTeam, .alpha)
+        XCTAssertEqual(service.fetchCallCount, 0)
+        XCTAssertEqual(
+            viewModel.errorMessage,
+            "Couldn’t join this game. Check your connection and try again."
+        )
     }
 
-    // MARK: - Load (network-dependent)
+    func testSuccessfulJoinRefreshesDetails() async throws {
+        let updatedDetails = TestFixtures.gameDetails(
+            startsAt: Date(timeIntervalSince1970: 1_800_000_000),
+            joinedPlayers: 3,
+            players: [
+                TestFixtures.player(),
+                TestFixtures.player(id: UUID(), team: .alpha),
+                TestFixtures.player(id: UUID(), team: .beta)
+            ]
+        )
+        let service = GameInfoServiceStub(
+            detailsResult: .success(updatedDetails)
+        )
+        let viewModel = makeViewModel(gameService: service)
 
-    func testLoadSetsErrorOrDetails() async {
-        let viewModel = GameInfoViewModel()
+        try await viewModel.joinGame(
+            gameId: TestFixtures.gameId,
+            team: .beta
+        )
 
-        await viewModel.load(
+        XCTAssertEqual(service.receivedJoinGameId, TestFixtures.gameId)
+        XCTAssertEqual(service.receivedJoinTeam, .beta)
+        XCTAssertEqual(service.fetchCallCount, 1)
+        XCTAssertEqual(viewModel.details?.players.count, 3)
+        XCTAssertNil(viewModel.errorMessage)
+    }
+
+    func testSuccessfulLeaveRefreshesDetails() async throws {
+        let service = GameInfoServiceStub()
+        let viewModel = makeViewModel(gameService: service)
+
+        try await viewModel.leaveGame(
             gameId: TestFixtures.gameId
         )
 
-        XCTAssertFalse(viewModel.isLoading)
-
-        let hasResult =
-            viewModel.details != nil
-            || viewModel.errorMessage != nil
-
-        XCTAssertTrue(hasResult)
+        XCTAssertEqual(service.receivedLeaveGameId, TestFixtures.gameId)
+        XCTAssertEqual(service.fetchCallCount, 1)
+        XCTAssertNotNil(viewModel.details)
+        XCTAssertNil(viewModel.errorMessage)
     }
 
-    func testLoadClearsPreviousErrorMessage() async {
-        let viewModel = GameInfoViewModel()
-        viewModel.errorMessage = "Previous error"
+    func testLeaveFailureShowsErrorAndThrows() async {
+        let service = GameInfoServiceStub(
+            leaveError: GameInfoTestError.failed
+        )
+        let viewModel = makeViewModel(gameService: service)
 
-        await viewModel.load(
-            gameId: TestFixtures.gameId
+        do {
+            try await viewModel.leaveGame(
+                gameId: TestFixtures.gameId
+            )
+            XCTFail("Leave should throw the service error")
+        } catch {
+            XCTAssertEqual(
+                error.localizedDescription,
+                GameInfoTestError.failed.localizedDescription
+            )
+        }
+
+        XCTAssertEqual(
+            service.receivedLeaveGameId,
+            TestFixtures.gameId
+        )
+        XCTAssertEqual(service.fetchCallCount, 0)
+        XCTAssertEqual(
+            viewModel.errorMessage,
+            "Couldn’t leave this game. Check your connection and try again."
+        )
+    }
+
+    func testSuccessfulJoinDoesNotThrowWhenRefreshFails() async throws {
+        let service = GameInfoServiceStub(
+            detailsResult: .failure(GameInfoTestError.failed)
+        )
+        let viewModel = makeViewModel(gameService: service)
+
+        try await viewModel.joinGame(
+            gameId: TestFixtures.gameId,
+            team: .alpha
         )
 
-        // load() resets errorMessage at start; final state depends on network.
-        XCTAssertFalse(viewModel.isLoading)
+        XCTAssertEqual(service.receivedJoinTeam, .alpha)
+        XCTAssertEqual(service.fetchCallCount, 1)
+        XCTAssertNil(viewModel.errorMessage)
+    }
+
+    private func makeViewModel(
+        gameService: (any GameInfoServing)? = nil,
+        weatherService: (any WeatherFetching)? = nil,
+        realtime: (any GameInfoRealtimeSubscribing)? = nil
+    ) -> GameInfoViewModel {
+
+        GameInfoViewModel(
+            gameService: gameService ?? GameInfoServiceStub(),
+            weatherService: weatherService ?? WeatherServiceStub(),
+            realtime: realtime ?? GameInfoRealtimeStub()
+        )
+    }
+}
+
+@MainActor
+private class GameInfoServiceStub: GameInfoServing {
+
+    private let detailsResult: Result<GameDetails, Error>
+    private let membersResult: Result<[GameMember], Error>
+    private let joinError: Error?
+    private let leaveError: Error?
+
+    private(set) var voteCallCount = 0
+    private(set) var fetchCallCount = 0
+    private(set) var receivedJoinGameId: UUID?
+    private(set) var receivedJoinTeam: Team?
+    private(set) var receivedLeaveGameId: UUID?
+
+    init(
+        detailsResult: Result<GameDetails, Error> = .success(
+            TestFixtures.gameDetails(
+                startsAt: Date(timeIntervalSince1970: 1_800_000_000)
+            )
+        ),
+        membersResult: Result<[GameMember], Error> = .success([]),
+        joinError: Error? = nil,
+        leaveError: Error? = nil
+    ) {
+
+        self.detailsResult = detailsResult
+        self.membersResult = membersResult
+        self.joinError = joinError
+        self.leaveError = leaveError
+    }
+
+    func fetchGameDetails(
+        gameId: UUID
+    ) async throws -> GameDetails {
+
+        fetchCallCount += 1
+        return try detailsResult.get()
+    }
+
+    func fetchGameMembers(
+        gameId: UUID
+    ) async throws -> [GameMember] {
+
+        try membersResult.get()
+    }
+
+    func joinGame(
+        gameId: UUID,
+        team: Team
+    ) async throws {
+
+        receivedJoinGameId = gameId
+        receivedJoinTeam = team
+
+        if let joinError {
+            throw joinError
+        }
+    }
+
+    func leaveGame(
+        gameId: UUID
+    ) async throws {
+
+        receivedLeaveGameId = gameId
+
+        if let leaveError {
+            throw leaveError
+        }
+    }
+
+    func voteMVP(
+        gameId: UUID,
+        votedUserId: UUID
+    ) async throws {
+
+        voteCallCount += 1
+    }
+}
+
+@MainActor
+private final class CancellingGameInfoServiceStub: GameInfoServiceStub {
+
+    private(set) var isFetchingDetails = false
+
+    override func fetchGameDetails(
+        gameId: UUID
+    ) async throws -> GameDetails {
+
+        isFetchingDetails = true
+        try await Task.sleep(for: .seconds(60))
+        throw CancellationError()
+    }
+}
+
+@MainActor
+private final class SuspendedVoteGameInfoServiceStub: GameInfoServiceStub {
+
+    private var voteContinuation: CheckedContinuation<Void, Never>?
+    private(set) var isVoteSuspended = false
+    private(set) var receivedVoteGameId: UUID?
+    private(set) var receivedVotedUserId: UUID?
+
+    override func voteMVP(
+        gameId: UUID,
+        votedUserId: UUID
+    ) async throws {
+
+        receivedVoteGameId = gameId
+        receivedVotedUserId = votedUserId
+        isVoteSuspended = true
+
+        await withCheckedContinuation { continuation in
+            voteContinuation = continuation
+        }
+    }
+
+    func resumeVote() {
+        voteContinuation?.resume()
+        voteContinuation = nil
+    }
+}
+
+@MainActor
+private final class WeatherServiceStub: WeatherFetching {
+
+    private let result: Result<Weather, Error>
+    private(set) var fetchCallCount = 0
+    private(set) var receivedLatitude: Double?
+    private(set) var receivedLongitude: Double?
+    private(set) var receivedDate: Date?
+
+    init(
+        result: Result<Weather, Error> = .success(
+            Weather(temperature: 20, windSpeed: 5, rainChance: 10)
+        )
+    ) {
+
+        self.result = result
+    }
+
+    func fetchWeather(
+        latitude: Double,
+        longitude: Double,
+        date: Date
+    ) async throws -> Weather {
+
+        fetchCallCount += 1
+        receivedLatitude = latitude
+        receivedLongitude = longitude
+        receivedDate = date
+        return try result.get()
+    }
+}
+
+@MainActor
+private final class GameInfoRealtimeStub: GameInfoRealtimeSubscribing {
+
+    private(set) var receivedGameIds: [UUID] = []
+
+    func subscribe(
+        gameId: UUID,
+        onChange: @escaping @MainActor @Sendable () async -> Void
+    ) async throws {
+
+        receivedGameIds.append(gameId)
+    }
+
+    func unsubscribe() async {}
+}
+
+private enum GameInfoTestError: LocalizedError {
+
+    case failed
+
+    var errorDescription: String? {
+        "Game request failed"
     }
 }
