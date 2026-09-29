@@ -1,6 +1,6 @@
 # Supabase backend GameSpot
 
-Снимок: production project `GameSpot`, регион `eu-north-1`, Postgres 17.6.1, read-only проверка 14 сентября 2026 года. Секреты и пользовательские данные в этот документ не включены.
+Документ описывает backend, воспроизводимый из versioned migrations в репозитории. Hosted project identifiers, operational metadata, credentials и пользовательские данные намеренно не публикуются.
 
 ## Состав backend
 
@@ -221,7 +221,7 @@ Public bucket означает: знающий URL может загрузить
 
 ## Edge Function `delete-account`
 
-Production function: `delete-account`, version 1, status ACTIVE, `verify_jwt=true`.
+Edge Function `delete-account` требует валидный JWT и не принимает identity из request body.
 
 Принимается только DELETE. Gateway проверяет JWT; handler берёт user ID из claims, а не request body. Порядок:
 
@@ -259,10 +259,9 @@ Shared games сохраняются с `creator_id = NULL`; связанные r
 8. `20260815191000_harden_function_search_paths.sql` — полный search-path pass.
 9. `20260912084515_restrict_rls_auto_enable.sql` — hosted helper privileges.
 10. `20260914145729_add_user_safety.sql` — reports, blocks, username policy и profile visibility.
+11. `20260916081437_task_20_optimize_advisors.sql` — indexes, canonical constraints и policy cleanup.
 
-Первые девять remote migration versions имеют дату фактического production применения 12 сентября. TASK-78 применена 14 сентября как remote migration `20260914155638_add_user_safety` и затем проверена read-only catalog queries. Existing production baseline был зарегистрирован без повторного CREATE; дальнейшие environments создаются полным локальным набором.
-
-Новые изменения всегда добавлять новой migration. Не редактировать уже применённые файлы и никогда не выполнять hosted `db reset`.
+Новый environment создаётся полным локальным набором migrations. Новые изменения всегда добавляются новой migration; уже применённые файлы не редактируются. Hosted database нельзя сбрасывать командой `db reset`.
 
 ## Локальное воспроизведение и тесты
 
@@ -281,21 +280,14 @@ supabase stop
 
 Набор tests: RPC privileges, table/RLS privileges, lifecycle, account deletion, avatar Storage, function security и user safety. Подробная установка — [SETUP.md](SETUP.md).
 
-## Текущие Advisor notices
+## Security validation
 
-Security:
-
-- 6 WARN для намеренно callable authenticated `SECURITY DEFINER` business RPC;
-- 1 INFO: `park_reviews` RLS без direct policies — ожидаемо, writes идут через RPC;
-- leaked password protection выключена — рекомендуется включить перед публичным продвижением, но не является кодовой ошибкой.
-
-Performance:
-
-- 15 foreign keys без covering indexes;
-- по две permissive SELECT policies на `profiles` и `user_sport_stats`;
-- duplicate unique index/constraint на `game_members(game_id,user_id)`.
-
-Для маленького портфолио dataset это не release blockers. Если развитие возобновится, сначала удалить duplicate constraint и индексировать реально горячие FK по query plans, а не все механически.
+Локальная проверка включает database lint, regression scripts для grants/RLS/RPC,
+полный lifecycle игры, удаление аккаунта, Storage policies и user safety.
+Authenticated `SECURITY DEFINER` functions считаются частью security-critical API:
+для них фиксируется `search_path`, явно назначается `EXECUTE`, а identity и
+инварианты повторно проверяются внутри функции. Performance-индексы добавляются
+по реальным query plans, а не механически для каждой колонки.
 
 Официальные remediation pages:
 

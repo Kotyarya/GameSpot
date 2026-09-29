@@ -68,7 +68,7 @@ More detail is available in [Architecture](docs/ARCHITECTURE.md), [Database](doc
 - Match rewards and MVP processing are idempotent.
 - Avatar upload is retry-safe and constrained by path, MIME type, and size.
 - Account deletion is handled by a JWT-protected Edge Function and removes related database and Storage data.
-- Authenticated UI journeys were verified with disposable accounts that were removed after testing.
+- Authenticated UI journeys were verified with isolated test accounts that were removed after testing.
 - Forty-two isolated SwiftUI previews cover screens, reusable components, and error/empty states without network access.
 
 ## Run locally
@@ -116,7 +116,7 @@ Current verification evidence:
 
 - Release simulator build: passed.
 - Full unit target on iPhone 17 Pro / iOS 26.5: passed.
-- Authenticated tab navigation, profile/settings, reporting/blocking, and account-deletion journeys: passed during production QA with disposable accounts.
+- Authenticated tab navigation, profile/settings, reporting/blocking, and account-deletion journeys: passed with isolated test accounts.
 - Local schema reset, database regression tests, and Supabase security checks: passed.
 
 ## Repository structure
@@ -147,8 +147,6 @@ docs/                  # architecture, setup, backend, decisions, and screenshot
 - [Feature flows](docs/FEATURES.md)
 - [Architecture decisions](docs/DECISIONS.md)
 - [SwiftUI preview catalog](docs/PREVIEWS.md)
-- [Changes since the original version](docs/CHANGES_SINCE_USER_VERSION.md)
-- [Moderation runbook](docs/MODERATION.md)
 - [Privacy Policy](docs/privacy-policy.md)
 
 Public Privacy Policy: <https://kotyarya.github.io/GameSpot/>
@@ -163,4 +161,4 @@ The only optional QA item left is one uninterrupted manual two-account walkthrou
 
 ## Author
 
-Created by Maksim Aksamitnyi as an iOS diploma and portfolio project. The release-hardening history is documented in [Changes since the original version](docs/CHANGES_SINCE_USER_VERSION.md).
+Created by Maksim Aksamitnyi as an iOS diploma and portfolio project.
