@@ -74,23 +74,3 @@ struct ContentStateView: View {
         )
     }
 }
-
-#Preview("Error") {
-    ContentStateView(
-        title: "Couldn’t Load Games",
-        message: "Check your connection and try again.",
-        systemImage: "wifi.exclamationmark",
-        accessibilityIdentifier: "preview.error",
-        actionTitle: "Try Again",
-        action: {}
-    )
-}
-
-#Preview("Empty") {
-    ContentStateView(
-        title: "No Games Yet",
-        message: "Explore a park and join your first game.",
-        systemImage: "sportscourt",
-        accessibilityIdentifier: "preview.empty"
-    )
-}

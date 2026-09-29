@@ -84,7 +84,3 @@ struct RankBadgesShowcaseView: View {
         .background(.white)
     }
 }
-
-#Preview {
-    RankBadgesShowcaseView()
-}

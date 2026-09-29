@@ -87,9 +87,3 @@ struct PrivacyPolicyView: View {
         }
     }
 }
-
-#Preview {
-    NavigationStack {
-        PrivacyPolicyView()
-    }
-}

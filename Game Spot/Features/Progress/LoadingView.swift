@@ -205,13 +205,3 @@ struct NativeLoadingView: View {
         )
     }
 }
-
-#Preview {
-
-    LoadingView()
-}
-
-#Preview("Native Loading") {
-
-    NativeLoadingView(title: "Loading Profile")
-}
