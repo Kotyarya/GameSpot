@@ -11,7 +11,7 @@
 - internet для Swift Package Manager, Supabase и Open-Meteo;
 - для локального backend: Docker-compatible runtime, Supabase CLI, `psql`;
 - для физического iPhone: Apple ID/Development Team и подходящий provisioning profile;
-- для App Store archive/submission: платный Apple Developer Program, которого локальная разработка и Simulator не требуют.
+- для запуска на физическом устройстве достаточно подходящей Development Team; для Simulator платный Apple Developer account не нужен.
 
 Project settings: app target Swift 6.0, minimum iOS 26.0, bundle ID `com.kotyarya.GameSpot`. Test targets используют Swift 5 language mode.
 
@@ -73,7 +73,7 @@ Info.plist регистрирует scheme `gamespot`. Клиент ожидае
 
 Для локального Supabase они записаны в `supabase/config.toml`. Для hosted проекта их необходимо вручную добавить в Auth → URL Configuration → Redirect URLs. Не используйте wildcard, если нет отдельной причины.
 
-Production email signup сейчас auto-confirm. Password recovery не заработает end-to-end, пока hosted redirect allow-list не обновлён (TASK-60).
+Production email signup сейчас auto-confirm. Оба exact redirect URL добавлены в hosted allow-list и проверены.
 
 ## Запуск в Simulator
 
@@ -103,7 +103,7 @@ xcrun simctl list devices available
 4. Включите Developer Mode на iPhone, если Xcode попросит.
 5. Выберите устройство и Run.
 
-Бесплатный personal team подходит для локального запуска с ограничениями. Для TestFlight/App Store нужен платный account и окончательный bundle ID.
+Бесплатный personal team подходит для локального запуска с ограничениями. TestFlight/App Store не входят в текущий portfolio scope.
 
 ## Unit tests
 
@@ -158,7 +158,7 @@ unset GAMESPOT_UI_TEST_EMAIL GAMESPOT_UI_TEST_PASSWORD \
   GAMESPOT_SIMULATOR_UDID
 ```
 
-При необходимости замените `-only-testing` на другой authenticated test, например `Game SpotUITests/AuthFlowUITests/testAuthenticatedUserCanOpenPrivacyPolicy`. Не записывайте credentials в scheme, shell history, Git или документацию. В production-тесте используйте одноразовый account и удалите его после проверки. Для App Review нужен отдельный стабильный account, не disposable automation user.
+При необходимости замените `-only-testing` на другой authenticated test, например `Game SpotUITests/AuthFlowUITests/testAuthenticatedUserCanOpenPrivacyPolicy`. Не записывайте credentials в scheme, shell history, Git или документацию. В production-тесте используйте одноразовый account и удалите его после проверки. Для повторной ручной демонстрации можно использовать отдельный тестовый account, не сохраняя его пароль в проекте.
 
 ## Release build без подписи
 
@@ -171,7 +171,7 @@ xcodebuild build \
   CODE_SIGNING_ALLOWED=NO
 ```
 
-Перед App Store дополнительно нужен Release archive на device destination, signing, privacy report и ручная проверка reviewer journey. Эти действия не входят в обычную локальную проверку.
+Для portfolio-проверки достаточно успешной Release Simulator сборки. Подпись и archive нужны только если позже будет принято отдельное решение о публикации.
 
 ## Локальный Supabase
 
@@ -201,7 +201,7 @@ supabase start
 supabase db reset --local --no-seed
 ```
 
-Это применит девять migrations к локальной базе. Никогда не запускайте reset для hosted production.
+Это применит всю versioned migration history к локальной базе. Никогда не запускайте reset для hosted production.
 
 ### SQL regression suite
 
@@ -212,7 +212,7 @@ for test_file in supabase/tests/database/*.sql; do
 done
 ```
 
-Ожидается успешный выход всех шести scripts. Они сами используют assertions и rollback там, где создают test data.
+Ожидается успешный выход всех scripts. Они сами используют assertions и rollback там, где создают test data.
 
 ### Schema diff
 
@@ -254,7 +254,7 @@ supabase stop
 
 ### Recovery link открывает browser или invalid screen
 
-Проверьте custom scheme в собранном Info.plist и exact hosted Redirect URLs. Сейчас production allow-list — известный незакрытый gate TASK-60.
+Проверьте custom scheme в собранном Info.plist и оба exact hosted Redirect URLs. Wildcard redirects не используются.
 
 ### Local Supabase не стартует
 

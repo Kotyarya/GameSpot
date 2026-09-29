@@ -20,6 +20,10 @@ struct Game_SpotApp: App {
 
             OnBoardingView()
 
+        } else if let screen = PortfolioScreenshotScreen.current {
+
+            PortfolioScreenshotHarness(screen: screen)
+
         } else if let scenario = ContentStateUITestScenario.current {
 
             ContentStateUITestHarness(scenario: scenario)
