@@ -6,24 +6,23 @@
 
 - macOS, поддерживающая Xcode 26;
 - Xcode 26.4 или новее; документация проверялась с Xcode 26.6;
-- iOS 26 Simulator runtime;
+- установленный runtime симулятора iOS 26 или новее;
 - Git;
-- internet для Swift Package Manager, Supabase и Open-Meteo;
-- для локального backend: Docker-compatible runtime, Supabase CLI, `psql`;
+- интернет для Swift Package Manager, Supabase и Open-Meteo;
+- для локального backend: совместимый с Docker runtime, Supabase CLI, `psql`;
 - для физического iPhone: Apple ID/Development Team и подходящий provisioning profile;
 - для запуска на физическом устройстве достаточно подходящей Development Team; для Simulator платный Apple Developer account не нужен.
 
-Project settings: app target Swift 6.0, minimum iOS 26.0, bundle ID `com.kotyarya.GameSpot`. Test targets используют Swift 5 language mode.
+Настройки проекта: основной target использует Swift 6.0, минимальная версия системы — iOS 26.0, bundle ID — `com.kotyarya.GameSpot`. Тестовые targets используют режим языка Swift 5.
 
 ## Получить код
 
 ```bash
 git clone https://github.com/Kotyarya/GameSpot.git
 cd GameSpot
-git switch codex/gamespot-appstore
 ```
 
-На дату документации feature-ветка могла ещё не быть отправлена в remote. Если команда `git switch` не находит ветку, используйте локальную рабочую копию или сначала выполните согласованный push этой ветки. Не заменяйте её `main`, пока изменения не merged.
+Актуальная портфолио-версия находится в ветке `main`; переключаться на feature-ветку не требуется.
 
 Проверьте состояние:
 
@@ -40,25 +39,25 @@ open "Game Spot.xcodeproj"
 
 Workspace отдельно не создавался. Swift Package Manager автоматически разрешит `supabase-swift`; lockfile фиксирует версию 2.44.1 и transitive dependencies.
 
-В Xcode выберите scheme `Game Spot`, iPhone 17 Pro или другой iOS 26 Simulator, затем Run (`⌘R`).
+В Xcode выберите схему `Game Spot`, любой доступный симулятор с iOS 26 или новее, затем нажмите Run (`⌘R`). Точный список доступных устройств можно получить командой `xcrun simctl list devices available`.
 
-## Client configuration
+## Конфигурация клиента
 
 Приложению нужны два bundle keys в `Game-Spot-Info.plist`:
 
 - `SupabaseURL`;
 - `SupabasePublishableKey`.
 
-Для своего environment получите Project URL и активный publishable/legacy anon key в Supabase Dashboard → Project Settings/API. Не используйте server-side credentials в client configuration.
+Для своего окружения получите Project URL и активный publishable/legacy anon key в Supabase Dashboard → Project Settings/API. Не используйте серверные credentials в конфигурации клиента.
 
 Никогда не добавляйте в iOS или Git:
 
-- service-role key;
-- `sb_secret_...` key;
-- database password;
-- Supabase personal access token;
-- JWT signing key;
-- test account password.
+- ключ service-role;
+- ключ формата `sb_secret_...`;
+- пароль базы данных;
+- персональный access token Supabase;
+- ключ подписи JWT;
+- пароль тестового аккаунта.
 
 `AppConfiguration` требует HTTPS URL и непустой publishable key. При ошибке configuration приложение намеренно падает на старте, чтобы неверная сборка не маскировалась.
 
@@ -105,19 +104,19 @@ xcrun simctl list devices available
 
 Бесплатный personal team подходит для локального запуска с ограничениями. TestFlight/App Store не входят в текущий portfolio scope.
 
-## Unit tests
+## Unit-тесты
 
 ```bash
 xcodebuild test \
   -project "Game Spot.xcodeproj" \
   -scheme "Game Spot" \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -destination 'platform=iOS Simulator,name=<имя доступного симулятора>' \
   -only-testing:'Game SpotTests'
 ```
 
 Unit suite использует service/realtime doubles и не должна изменять production Supabase. Configuration test только проверяет форму client URL/publishable key.
 
-## UI tests
+## UI-тесты
 
 Весь UI target:
 
@@ -160,7 +159,7 @@ unset GAMESPOT_UI_TEST_EMAIL GAMESPOT_UI_TEST_PASSWORD \
 
 При необходимости замените `-only-testing` на другой authenticated test, например `Game SpotUITests/AuthFlowUITests/testAuthenticatedUserCanOpenPrivacyPolicy`. Не записывайте credentials в scheme, shell history, Git или документацию. Используйте изолированный test account и удаляйте его после проверки.
 
-## Release build без подписи
+## Release-сборка без подписи
 
 ```bash
 xcodebuild build \
@@ -192,7 +191,7 @@ colima start
 docker info
 ```
 
-### Clean reset
+### Чистое восстановление схемы
 
 Из корня репозитория:
 
@@ -203,7 +202,7 @@ supabase db reset --local --no-seed
 
 Это применит всю versioned migration history к локальной базе. Никогда не запускайте reset для hosted production.
 
-### SQL regression suite
+### Набор SQL regression tests
 
 ```bash
 DATABASE_URL='postgresql://postgres:postgres@127.0.0.1:54322/postgres'
@@ -214,7 +213,7 @@ done
 
 Ожидается успешный выход всех scripts. Они сами используют assertions и rollback там, где создают test data.
 
-### Schema diff
+### Проверка отличий схемы
 
 ```bash
 supabase db diff --local --schema public,storage
@@ -251,7 +250,7 @@ supabase stop
 
 Проверьте два Info.plist configuration keys. Не заменяйте publishable key service-role key.
 
-### Recovery link открывает browser или invalid screen
+### Ссылка восстановления открывает браузер или некорректный экран
 
 Проверьте custom scheme в собранном Info.plist и оба exact hosted Redirect URLs. Wildcard redirects не используются.
 

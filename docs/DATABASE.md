@@ -1,4 +1,4 @@
-# Supabase backend GameSpot
+# Backend GameSpot на Supabase
 
 Документ описывает backend, воспроизводимый из versioned migrations в репозитории. Hosted project identifiers, operational metadata, credentials и пользовательские данные намеренно не публикуются.
 
@@ -6,10 +6,10 @@
 
 Supabase используется для:
 
-- email/password Auth;
+- Auth по email/паролю;
 - PostgreSQL tables и server-side business rules;
 - PostgREST reads и RPC;
-- Postgres Changes Realtime;
+- Realtime на основе Postgres Changes;
 - Storage bucket аватаров;
 - Edge Function удаления аккаунта;
 - `pg_cron` для жизненного цикла матчей.
@@ -123,7 +123,7 @@ PK UUID; FK park/sport и nullable `creator_id -> profiles`. Nullable creator п
 
 ## Functions и RPC
 
-### Client-facing authenticated mutations
+### Авторизованные изменения, доступные клиенту
 
 | Function | Поведение |
 | --- | --- |
@@ -139,7 +139,7 @@ PK UUID; FK park/sport и nullable `creator_id -> profiles`. Nullable creator п
 
 Это `SECURITY DEFINER` API-поверхность. Execute есть у `authenticated`, а внутри mutating functions проверяется identity/state. Поэтому соответствующие Advisor WARN являются ожидаемыми, но каждое изменение function body требует повторного security review.
 
-### Authenticated reads
+### Чтение для авторизованных пользователей
 
 | Function | Результат |
 | --- | --- |
@@ -150,7 +150,7 @@ PK UUID; FK park/sport и nullable `creator_id -> profiles`. Nullable creator п
 
 Эти функции работают как `SECURITY INVOKER`, поэтому подчиняются grants/RLS вызывающего пользователя. `get_game_by_id` существует, но iOS его сейчас не вызывает.
 
-### Internal functions
+### Внутренние функции
 
 | Function | Кто вызывает |
 | --- | --- |
@@ -187,7 +187,7 @@ PK UUID; FK park/sport и nullable `creator_id -> profiles`. Nullable creator п
 
 Tie-break при равных голосах — UUID игрока, а не random, поэтому повторяемость сохранена.
 
-## Triggers
+## Триггеры
 
 - `auth.users AFTER INSERT -> handle_new_user()`;
 - `profiles AFTER INSERT -> create_user_sport_stats()`;
@@ -208,18 +208,18 @@ Tie-break при равных голосах — UUID игрока, а не rand
 
 Публичное чтение profiles/stats для signed-in пользователей необходимо roster/profile Realtime. Это означает, что username/avatar/game-visible stats не являются приватными внутри приложения; это отражено в Privacy Policy.
 
-## Storage `avatars`
+## Хранилище `avatars`
 
 - bucket public для download по URL;
-- object path: `{lowercased-user-uuid}/avatar.jpg`;
-- server limit: 5 MiB;
-- MIME allow-list: `image/jpeg`, `image/png`;
+- путь объекта: `{lowercased-user-uuid}/avatar.jpg`;
+- серверное ограничение: 5 MiB;
+- разрешённые MIME-типы: `image/jpeg`, `image/png`;
 - metadata SELECT, INSERT, UPDATE, DELETE доступны только `authenticated` owner собственной папки;
 - iOS всегда загружает JPEG с `upsert: true` и добавляет query parameter для cache busting.
 
 Public bucket означает: знающий URL может загрузить изображение без auth. Bucket listing и чужие writes при этом закрыты. Если avatars должны стать строго приватными, потребуется private bucket + signed URLs и изменение client model.
 
-## Edge Function `delete-account`
+## Функция Edge Function `delete-account`
 
 Edge Function `delete-account` требует валидный JWT и не принимает identity из request body.
 
@@ -232,7 +232,7 @@ Edge Function `delete-account` требует валидный JWT и не пр�
 
 Shared games сохраняются с `creator_id = NULL`; связанные rows удаляются через profile/FK cascades; park aggregates после удаления reviews пересчитываются. Операция retry-safe для уже удалённого avatar/partial data cleanup насколько допускают Supabase APIs.
 
-## Realtime publication
+## Публикация Realtime
 
 В `supabase_realtime` включены:
 
@@ -245,19 +245,19 @@ Shared games сохраняются с `creator_id = NULL`; связанные r
 
 Клиентские подписки описаны в [ARCHITECTURE.md](ARCHITECTURE.md). `sports` опубликована, хотя отдельной runtime subscription на неё сейчас нет.
 
-## Migrations
+## Миграции
 
 Локальный порядок:
 
 1. `20260815151015_production_baseline.sql` — полная исходная схема.
 2. `20260815152151_remove_debug_rpcs.sql` — удаление debug RPC.
-3. `20260815152736_harden_rpc_privileges.sql` — RPC grants/invoker/search path.
-4. `20260815153230_harden_table_access.sql` — table grants/RLS/column privileges.
+3. `20260815152736_harden_rpc_privileges.sql` — права RPC, режим invoker и search path.
+4. `20260815153230_harden_table_access.sql` — права таблиц, RLS и права колонок.
 5. `20260815153849_fix_game_lifecycle.sql` — lifecycle и MVP.
-6. `20260815155612_add_account_deletion.sql` — service-only cleanup.
+6. `20260815155612_add_account_deletion.sql` — очистка, доступная только служебной роли.
 7. `20260815170136_harden_avatar_storage.sql` — bucket и policies.
 8. `20260815191000_harden_function_search_paths.sql` — полный search-path pass.
-9. `20260912084515_restrict_rls_auto_enable.sql` — hosted helper privileges.
+9. `20260912084515_restrict_rls_auto_enable.sql` — права вспомогательной hosted-функции.
 10. `20260914145729_add_user_safety.sql` — reports, blocks, username policy и profile visibility.
 11. `20260916081437_task_20_optimize_advisors.sql` — indexes, canonical constraints и policy cleanup.
 
@@ -280,7 +280,7 @@ supabase stop
 
 Набор tests: RPC privileges, table/RLS privileges, lifecycle, account deletion, avatar Storage, function security и user safety. Подробная установка — [SETUP.md](SETUP.md).
 
-## Security validation
+## Проверка безопасности
 
 Локальная проверка включает database lint, regression scripts для grants/RLS/RPC,
 полный lifecycle игры, удаление аккаунта, Storage policies и user safety.
@@ -291,6 +291,6 @@ Authenticated `SECURITY DEFINER` functions считаются частью secur
 
 Официальные remediation pages:
 
-- [Supabase Database Linter](https://supabase.com/docs/guides/database/database-linter)
-- [Storage access control](https://supabase.com/docs/guides/storage/security/access-control)
-- [Password security](https://supabase.com/docs/guides/auth/password-security)
+- [Проверка базы данных Supabase](https://supabase.com/docs/guides/database/database-linter)
+- [Управление доступом к Storage](https://supabase.com/docs/guides/storage/security/access-control)
+- [Безопасность паролей](https://supabase.com/docs/guides/auth/password-security)

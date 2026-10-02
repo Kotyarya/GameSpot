@@ -68,7 +68,7 @@ Typed `Route` поддерживает:
 
 ## Слои и ответственность
 
-### Views
+### Представления
 
 Views отвечают за layout, presentation state, navigation и отправку действий в ViewModel. Значимая бизнес-валидация должна находиться в ViewModel/backend, но в больших views остаётся часть presentation logic: статус парка, countdown, видимость actions и форматирование.
 
@@ -78,7 +78,7 @@ Views отвечают за layout, presentation state, navigation и отпра
 | --- | --- |
 | `AuthView` | sign in, sign up, confirmation/resend, переход к reset request |
 | `OnBoardingView` | вводный carousel и foreground location permission |
-| `ProfileSetupView` | username, favorite sport, optional avatar |
+| `ProfileSetupView` | имя пользователя, любимый вид спорта и необязательный аватар |
 | `MapView` | карта активных парков и выбор маркера |
 | `ParkInfoView` | данные площадки, рейтинг, игры и create action |
 | `GamesView` | игры пользователя или выбранного парка |
@@ -92,7 +92,7 @@ Views отвечают за layout, presentation state, navigation и отпра
 
 `ContentStateView` — единое production-представление error/empty/retry. `LoadingView` — полноэкранная загрузка.
 
-### ViewModels
+### Модели представления
 
 | ViewModel | Основная ответственность | Зависимости |
 | --- | --- | --- |
@@ -102,12 +102,12 @@ Views отвечают за layout, presentation state, navigation и отпра
 | `ParkDetailsViewModel` | параллельная загрузка деталей, rating state, stale-response protection | `ParkDetailsServing` |
 | `GamesViewModel` | режим My Games/Park, sections source data, Realtime reload | `GamesFetching`, `GamesRealtimeSubscribing` |
 | `CreateGameViewModel` | client validation sport и create RPC | `GameCreating` |
-| `GameInfoViewModel` | details, optional weather, Join/Leave/Vote, Realtime | `GameInfoServing`, `WeatherFetching`, `GameInfoRealtimeSubscribing` |
-| `ProfileViewModel` | profile/stats/recent matches, avatar actions, Realtime | `ProfileFetching`, `ProfileRealtimeSubscribing`, avatar protocols |
+| `GameInfoViewModel` | детали, необязательная погода, присоединение/выход/голосование, Realtime | `GameInfoServing`, `WeatherFetching`, `GameInfoRealtimeSubscribing` |
+| `ProfileViewModel` | профиль, статистика, недавние матчи, действия с аватаром, Realtime | `ProfileFetching`, `ProfileRealtimeSubscribing`, protocols аватара |
 | `PublicProfileViewModel` | read-only profile и per-sport stats другого игрока | `ProfileFetching` |
 | `AccountDeletionViewModel` | single-flight delete и user-safe error | `AccountDeleting` |
-| `PasswordResetRequestViewModel` | neutral recovery request result | `PasswordRecoveryServing` |
-| `PasswordRecoveryViewModel` | password policy + update | `PasswordRecoveryServing` |
+| `PasswordResetRequestViewModel` | нейтральный результат запроса восстановления | `PasswordRecoveryServing` |
+| `PasswordRecoveryViewModel` | правила и обновление пароля | `PasswordRecoveryServing` |
 
 Все ViewModel выполняются на `@MainActor`, поэтому `@Published` state меняется последовательно на UI actor.
 
@@ -116,13 +116,13 @@ Views отвечают за layout, presentation state, navigation и отпра
 | Компонент | Ответственность |
 | --- | --- |
 | `SupabaseService` | единственный `SupabaseClient`, Auth redirect и publishable configuration |
-| `AuthService` | email/password Auth, resend, recovery, PKCE session exchange |
-| `ProfileService` | profile, per-sport stats, recent matches, onboarding/profile flags |
-| `GameService` | client-facing game RPC |
+| `AuthService` | Auth по email/паролю, повторная отправка, восстановление и обмен PKCE-сессии |
+| `ProfileService` | профиль, статистика по видам спорта, недавние матчи и флаги онбординга |
+| `GameService` | клиентские игровые RPC |
 | `ParkService` | прямые catalogue reads и rating RPC |
-| `SportService` | sports catalogue |
-| `SupabaseAvatarStorageService` | `{userId}/avatar.jpg`, upsert/remove/public URL |
-| `AccountDeletionService` | JWT-authenticated DELETE Edge Function invocation |
+| `SportService` | каталог видов спорта |
+| `SupabaseAvatarStorageService` | `{userId}/avatar.jpg`, добавление/замена, удаление и публичный URL |
+| `AccountDeletionService` | вызов DELETE Edge Function с JWT-аутентификацией |
 | `WeatherService` | Open-Meteo hourly forecast и выбор ближайшего часа |
 | `LocationManager` | when-in-use permission и Core Location updates |
 | Realtime services | lifecycle конкретного channel и callbacks для reload |
@@ -225,7 +225,7 @@ ProfileView -> SettingsView -> AccountDeletionViewModel
   -> client clears local session only after deleted=true
 ```
 
-## Realtime
+## Обновления Realtime
 
 Клиент использует Postgres Changes, а payload обычно служит сигналом перечитать authoritative RPC/table result.
 

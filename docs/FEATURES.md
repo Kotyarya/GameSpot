@@ -2,9 +2,9 @@
 
 Документ описывает текущие пользовательские сценарии и задействованные компоненты. Он не является списком будущих идей.
 
-## Authentication
+## Аутентификация
 
-### Sign up
+### Регистрация
 
 1. Пользователь вводит email/password в `AuthView`.
 2. `AuthViewModel` нормализует email и вызывает `AuthService.signUp`.
@@ -15,13 +15,13 @@
 
 При включённом Auth auto-confirm обычная регистрация сразу создаёт session. Код confirmation сохранён для environments, где требуется подтверждение email.
 
-### Sign in / sign out
+### Вход и выход
 
 Sign in выполняет Supabase email/password Auth, затем `SessionManager` выбирает onboarding/profile setup/main по profile flags. Sign out очищает Supabase и локальное состояние. Технические Auth errors не показываются дословно.
 
 Sign in with Apple в версии 1.0 отсутствует: прежняя неработающая кнопка удалена.
 
-### Password recovery
+### Восстановление пароля
 
 1. Forgot password открывает `PasswordResetRequestView`.
 2. `resetPasswordForEmail` отправляет письмо с redirect `gamespot://auth/recovery`.
@@ -32,7 +32,7 @@ Sign in with Apple в версии 1.0 отсутствует: прежняя н
 
 Оба exact redirect URL настроены для hosted Auth. Wildcard redirects не используются.
 
-## Onboarding и Profile Setup
+## Первичная настройка профиля
 
 После первого входа backend profile создаётся trigger автоматически.
 
@@ -62,9 +62,9 @@ Location используется только локально для пози�
 
 - основные поля park;
 - доступные sports;
-- weekly hours;
-- image URLs;
-- aggregate rating.
+- расписание на неделю;
+- URL изображений;
+- совокупный рейтинг.
 
 UI показывает lighting, open/closed, photos, rating и actions View Games/Create Game. Protection по requested park ID не даёт старому async response перезаписать новый выбор.
 
@@ -72,7 +72,7 @@ UI показывает lighting, open/closed, photos, rating и actions View Ga
 
 Авторизованный пользователь выставляет quality/facilities/activity от 1 до 5. `rate_park` проверяет identity и range, создаёт или обновляет один review на user+park и полностью пересчитывает aggregate `parks_ratings`. Double submit блокируется, failure остаётся на форме и допускает retry.
 
-## Create Game
+## Создание игры
 
 1. Из park details пользователь выбирает Create Game.
 2. `CreateGameView` предлагает только sports, связанные с park.
@@ -85,7 +85,7 @@ UI показывает lighting, open/closed, photos, rating и actions View Ga
 
 Server является источником истины; подмена creator/duration/capacity прямым table write запрещена.
 
-## Games list / My Games
+## Список игр и «Мои игры»
 
 `GamesView` работает в двух режимах:
 
@@ -96,7 +96,7 @@ Server является источником истины; подмена creato
 
 Realtime changes в `games` или `game_members` запускают reload текущего режима. Error и empty states различаются: My Games подсказывает найти/создать игру, сетевой error предлагает Retry.
 
-## Game Info
+## Информация об игре
 
 `get_game_details` возвращает один составной payload: состояние, park, sport, roster, current membership/vote, player highlights и MVP. Параллельно после details запрашивается weather.
 
@@ -104,7 +104,7 @@ Weather — optional: ошибка Open-Meteo не скрывает game data. �
 
 Экран показывает upcoming countdown, live state, Voting, Finished или Completed согласно backend flags.
 
-## Join Game
+## Присоединение к игре
 
 1. Пользователь открывает team sheet.
 2. Выбирает свободный slot Team Alpha/Beta.
@@ -113,7 +113,7 @@ Weather — optional: ошибка Open-Meteo не скрывает game data. �
 5. После успеха details перечитываются, sheet закрывается.
 6. При ошибке sheet остаётся открытым и показывает безопасное сообщение.
 
-## Leave Game
+## Выход из игры
 
 Путь аналогичен Join. `leave_game` удаляет только membership текущего `auth.uid()` и только до старта. Creator также может выйти до старта; сама game остаётся существовать. После успеха details перечитываются.
 
@@ -130,7 +130,7 @@ State меняет server cron, не открытый client timer:
 
 UI timer только отображает время; даже изменённые часы устройства не обходят backend rules.
 
-## MVP voting
+## Голосование за MVP
 
 Голосовать может только participant завершённой game во время открытого window. Нельзя голосовать за себя, неучастника или повторно. За сам vote текущий пользователь получает 2 global performance points; MVP получает global и per-sport bonus, зависящий от количества votes. Итог сохраняется также в `game_members` для recent match history.
 
@@ -150,7 +150,7 @@ names и минимальный offensive-word deny-list. Статус жало�
 привилегированному backend-процессу, а клиент не может читать чужие жалобы или
 изменять результат модерации.
 
-## Profile и Statistics
+## Профиль и статистика
 
 Profile параллельно загружает:
 
@@ -162,27 +162,27 @@ Profile параллельно загружает:
 
 Расчёт league/division выполняет `RankHelper` в клиенте; числовую статистику изменяет только backend.
 
-## Avatar
+## Аватар
 
 Пользователь может добавить, заменить или удалить photo и при initial setup, и в готовом profile. Client создаёт JPEG не более 1024 px и 5 MiB, загружает в `{userId}/avatar.jpg` с upsert. URL получает cache-busting query. Storage policies разрешают управление только owner folder.
 
 Bucket public для отображения URL другим signed-in пользователям; знание URL технически позволяет public download.
 
-## Weather
+## Погода
 
 `WeatherService` вызывает бесплатный Open-Meteo forecast API по координатам park и выбирает hourly value, ближайшее к `starts_at`. Показываются temperature, wind и precipitation probability. API key не нужен. Forecast ограничен запрашиваемыми семью днями, поэтому слишком далёкая game получит ближайшее доступное значение — известное ограничение.
 
-## Realtime updates
+## Обновления Realtime
 
 Realtime не заменяет database reads: событие уведомляет ViewModel, после чего authoritative state перечитывается.
 
-- game lists: `games`, `game_members`;
+- списки игр: `games`, `game_members`;
 - game info: `games`, `game_members`, `game_mvp_votes`, с фильтром game ID;
 - profile: `profiles`, `user_sport_stats`, с фильтром user ID.
 
 Channels уникальны для экземпляра экрана и удаляются при cleanup, что устраняет прежние order-dependent failures.
 
-## Privacy и удаление аккаунта
+## Конфиденциальность и удаление аккаунта
 
 Privacy Policy доступна из Profile и публично по <https://kotyarya.github.io/GameSpot/>. Profile содержит необратимое Delete Account с двойным подтверждением.
 
@@ -191,10 +191,10 @@ Edge Function проверяет JWT, удаляет avatar, application data и
 ## Что намеренно отсутствует в версии 1.0
 
 - Sign in with Apple;
-- push notifications;
-- offline cache;
-- payments/ads/analytics;
-- background location;
+- push-уведомления;
+- offline-кэш;
+- платежи, реклама и аналитика;
+- фоновая геолокация;
 - полноценный park text search;
 - admin UI для parks/sports.
 

@@ -62,7 +62,7 @@
 
 **Consequences.** Меньше attack surface. Добавление новой client mutation требует migration/RPC, а не только Swift call.
 
-## ADR-007 — versioned baseline + forward-only migrations
+## ADR-007 — версионируемый baseline и миграции только вперёд
 
 **Context.** Backend был создан вручную в production, migration history отсутствовала.
 
@@ -92,7 +92,7 @@
 
 **Consequences.** Окно короткое и подходит demo, но может быть неудобно реальным игрокам. Изменение duration требует migration и синхронизации UI/docs/tests.
 
-## ADR-010 — Realtime как invalidation, а не локальное применение events
+## ADR-010 — Realtime как сигнал обновления, а не локальное применение событий
 
 **Context.** Composite RPC models содержат joins/counts/highlights, которые сложно корректно обновлять одним row payload.
 
@@ -102,7 +102,7 @@
 
 **Consequences.** Больше network requests; UI получает согласованный snapshot. При росте нагрузки потребуется debounce/coalescing или более точечные updates.
 
-## ADR-011 — уникальный Realtime channel на экземпляр
+## ADR-011 — уникальный канал Realtime для каждого экземпляра
 
 **Context.** Общий channel name и регистрация callback после subscribe создавали order-dependent test/runtime failure.
 
@@ -112,7 +112,7 @@
 
 **Consequences.** Нет конфликтов shared channel; важно сохранять unsubscribe в `deinit` и не создавать лишние долгоживущие ViewModels.
 
-## ADR-012 — fixed avatar path + upsert
+## ADR-012 — фиксированный путь аватара и upsert
 
 **Context.** Upload `{userId}/avatar.jpg` без upsert ломал повтор после частичного сбоя.
 
@@ -122,7 +122,7 @@
 
 **Consequences.** Простое удаление и quota; история фотографий не хранится; CDN cache обходится query parameter.
 
-## ADR-013 — public-download avatar bucket
+## ADR-013 — публичное скачивание аватаров из bucket
 
 **Context.** Roster/profile UI должен показывать avatars по обычному URL. Изначальный bucket уже был public.
 
