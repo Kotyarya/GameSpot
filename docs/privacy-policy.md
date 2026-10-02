@@ -1,78 +1,114 @@
 ---
-title: Политика конфиденциальности GameSpot
+title: GameSpot Privacy Policy
 ---
 
-# Политика конфиденциальности GameSpot
+# GameSpot Privacy Policy
 
-Последнее обновление: 2 октября 2026 года
+Last updated: October 2, 2026
 
-Эта политика объясняет, как GameSpot («GameSpot», «мы», «нас») обрабатывает информацию при использовании iOS-приложения GameSpot.
+This Privacy Policy explains how GameSpot ("GameSpot", "we", "us") handles
+information when you use the GameSpot iOS application.
 
-## Какие данные мы собираем
+## Information we collect
 
-Для работы приложения GameSpot обрабатывает следующие данные:
+GameSpot handles the following information to operate the app:
 
-- Данные аккаунта: адрес электронной почты и идентификатор пользователя Supabase Auth.
-- Данные профиля: имя пользователя, аватар, любимый вид спорта, статус прохождения онбординга, рейтинг, количество игр, наград MVP и очков эффективности.
-- Игровые данные: созданные игры и участие в них, выбранная команда, результаты и история матчей, голоса за MVP и спортивная статистика.
-- Другой пользовательский контент: числовые оценки площадок и текстовые отзывы.
-- Данные безопасности: отправленные жалобы, выбранная причина, необязательное описание, снимок данных профиля пользователя на момент жалобы и личный список заблокированных пользователей.
-- Технические данные сервиса: Supabase может хранить журналы запросов с IP-адресом, определённой по нему страной, user-agent, временем запроса, маршрутом, статусом ответа и связанными служебными метаданными для работы и защиты сервиса.
+- Account information: email address and Supabase authentication user ID.
+- Profile information: username, avatar, favorite sport, onboarding status,
+  ratings, games played, MVP count, and performance points.
+- Gameplay content: games created or joined, team assignment, match results,
+  match history, MVP votes, and sport statistics.
+- Other user content: numeric park ratings and written park reviews.
+- Safety information: reports you submit, the selected report reason, optional
+  report details, a snapshot of the reported profile, and your private blocked
+  users list.
+- Technical service data: Supabase may retain request logs containing IP
+  address, IP-derived country, user-agent, timestamp, route, response status,
+  and related service metadata for operation and security.
 
-Имя пользователя, аватар, рейтинги, игровая статистика, участие в играх и отзывы о площадках могут быть видны другим авторизованным пользователям GameSpot, когда это необходимо для многопользовательских и социальных функций приложения.
+The username, avatar, ratings, gameplay statistics, game participation, and park
+reviews may be visible to other signed-in GameSpot users where needed for the
+app's multiplayer and social features.
 
-## Геолокация
+## Location
 
-С вашего разрешения GameSpot использует точную геолокацию, пока приложение открыто, чтобы показать положение на карте и помочь найти ближайшие спортивные площадки. Геолокация обрабатывается непосредственно на устройстве средствами Apple MapKit и Core Location. GameSpot не отправляет и не сохраняет геолокацию устройства в Supabase.
+With your permission, GameSpot uses your precise location while the app is open
+to show your position on the map and help you find nearby sports parks. Your
+device location is processed on your device through Apple MapKit and Core
+Location. GameSpot does not send or store your device location in Supabase.
 
-Как и большинство интернет-сервисов, Supabase может обрабатывать IP-адрес и приблизительную страну, определённую по нему, в технических журналах запросов. Эти сетевые метаданные не связаны с разрешением на точную геолокацию, которое используется картой.
+Like most internet services, Supabase may process your IP address and an
+approximate country derived from it in technical request logs. This network
+metadata is separate from the precise location permission used by the map.
 
-Разрешение можно отклонить или отозвать в настройках iOS. Остальная часть приложения продолжит работать, но карта не сможет показать текущее положение пользователя.
+You can deny or revoke location permission in iOS Settings. The rest of the app
+remains available, although the map cannot show your current position.
 
-## Для чего используются данные
+## How we use information
 
-Мы используем информацию только для того, чтобы:
+We use information only to:
 
-- создавать и защищать аккаунт;
-- отображать профиль и аватар;
-- организовывать игры, команды, рейтинги, голосование за MVP и отзывы о площадках;
-- хранить историю матчей и статистику;
-- предоставлять удаление аккаунта и поддержку;
-- предотвращать злоупотребления и поддерживать безопасность сервиса;
-- рассматривать жалобы, обеспечивать безопасность сообщества и применять выбранные настройки блокировки.
+- create and secure your account;
+- provide your profile and avatar;
+- organize games, teams, rankings, MVP voting, and park reviews;
+- maintain match history and performance statistics;
+- provide account deletion and support;
+- prevent abuse and maintain service security; and
+- review user reports, enforce community safety, and apply your blocking
+  preferences.
 
-GameSpot не использует персональные данные для сторонней рекламы или межпрограммного отслеживания и не продаёт персональные данные.
+GameSpot does not use personal information for third-party advertising or
+cross-app tracking, and does not sell personal information.
 
-## Поставщики услуг
+## Service providers
 
-Supabase предоставляет GameSpot сервисы аутентификации, базы данных, хранения файлов, Realtime и серверных функций. Для работы этих возможностей Supabase обрабатывает информацию от нашего имени. Apple предоставляет MapKit и Core Location на устройстве.
+Supabase provides GameSpot's authentication, database, file storage, realtime,
+and server-function services. Supabase processes information on our behalf to
+provide these features. Apple provides MapKit and Core Location on the device.
+GameSpot does not use advertising, marketing attribution, or third-party
+analytics SDKs.
 
-GameSpot не использует рекламные SDK, маркетинговую атрибуцию или стороннюю аналитику.
+## Retention and deletion
 
-## Хранение и удаление
+We retain account and app data while your account is active and as needed to
+provide GameSpot. You can request deletion in the app from **Profile → Settings
+→ Delete Account**.
 
-Мы храним данные аккаунта и приложения, пока аккаунт активен и пока это необходимо для работы GameSpot. Запросить удаление можно в приложении: **Профиль → Настройки → Удалить аккаунт**.
+When account deletion completes, the authentication account, profile, avatar,
+game participation, MVP votes, and reviews are deleted. Games created by the
+account may remain with the creator reference removed so other players' match
+history stays consistent. A numeric park rating may be anonymized where it is
+needed to preserve aggregate venue ratings.
 
-После завершения удаления стираются аккаунт аутентификации, профиль, аватар, участие в играх, голоса за MVP и отзывы. Созданные пользователем игры могут сохраниться без ссылки на автора, чтобы не нарушать историю матчей других игроков. Числовая оценка площадки может быть обезличена, если это необходимо для сохранения общего рейтинга площадки.
+Reports and blocking records associated with a deleted account are removed.
+Limited moderation records may be retained where reasonably necessary for
+security, abuse prevention, or legal compliance.
 
-Связанные с удалённым аккаунтом жалобы и записи блокировок удаляются. Ограниченные данные модерации могут храниться дольше, если это обоснованно необходимо для безопасности, предотвращения злоупотреблений или соблюдения законодательства.
+Service-provider backups and security logs may remain temporarily under the
+provider's retention schedules before automatic expiration. We may also retain
+limited information where required for security, fraud prevention, or legal
+compliance.
 
-Резервные копии и журналы безопасности поставщика услуг могут временно сохраняться согласно его срокам хранения до автоматического удаления. Мы также можем хранить ограниченную информацию, когда это необходимо для безопасности, предотвращения мошенничества или соблюдения законодательства.
+## Security
 
-## Безопасность
+GameSpot uses encrypted network connections, authenticated sessions, database
+row-level security, and least-privilege backend access controls. No internet
+service can guarantee absolute security. Use a unique password and keep your
+device secure.
 
-GameSpot использует зашифрованные сетевые соединения, авторизованные сессии, Row Level Security базы данных и backend-права по принципу минимальных привилегий. Ни один интернет-сервис не может гарантировать абсолютную безопасность. Используйте уникальный пароль и защищайте своё устройство.
+## Children
 
-## Дети
+GameSpot is not directed to children under 13. We do not knowingly collect
+personal information from children under 13. If you believe a child has provided
+personal information, contact us so we can investigate and delete it.
 
-GameSpot не предназначен для детей младше 13 лет. Мы сознательно не собираем персональные данные детей младше 13 лет. Если вы считаете, что ребёнок передал нам персональные данные, свяжитесь с нами, чтобы мы могли провести проверку и удалить их.
+## Changes
 
-## Изменения политики
+We may update this policy when GameSpot's features or data practices change. The
+latest version will show its effective date at the top of this page.
 
-Мы можем обновлять эту политику при изменении возможностей GameSpot или порядка обработки данных. Дата вступления в силу актуальной версии указана в начале документа.
+## Contact
 
-## Контакты
-
-По вопросам конфиденциальности, удаления данных или поддержки обращайтесь по адресу:
+For privacy questions, deletion assistance, or support, contact:
 
 [gamespot.support@icloud.com](mailto:gamespot.support@icloud.com)

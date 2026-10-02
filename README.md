@@ -1,79 +1,79 @@
 # GameSpot
 
-GameSpot — нативное iOS-приложение для поиска людей, с которыми можно сыграть в футбол или баскетбол на бесплатных открытых спортивных площадках. Пользователь может найти площадку, создать игру или присоединиться к ней, выбрать команду, следить за этапами матча, проголосовать за MVP и развивать рейтинг по каждому виду спорта.
+GameSpot is a native iOS app for finding people to play football or basketball with at free outdoor sports courts. A player can discover a park, create or join a game, choose a team, follow the match lifecycle, vote for an MVP, and build a sport-specific rating.
 
-Это завершённый портфолио-проект. Он демонстрирует полноценный клиент на SwiftUI, версионируемый backend на Supabase, правила безопасности, приближённые к production, и автоматизированные тесты. Сейчас приложение не распространяется через App Store.
+This repository is a finished portfolio project. It demonstrates a complete SwiftUI client, a versioned Supabase backend, production-oriented security rules, and automated testing. It is not currently distributed through the App Store.
 
-## Обзор приложения
+## Product tour
 
 <p align="center">
-  <img src="docs/screenshots/games.png" width="23%" alt="Экран моих игр с предстоящими и завершёнными матчами">
-  <img src="docs/screenshots/game.png" width="23%" alt="Информация об игре, игроках и командах">
-  <img src="docs/screenshots/profile.png" width="23%" alt="Профиль игрока с рейтингом и статистикой матчей">
-  <img src="docs/screenshots/settings.png" width="23%" alt="Настройки, конфиденциальность, поддержка и действия с аккаунтом">
+  <img src="docs/screenshots/games.png" width="23%" alt="My Games screen with upcoming and completed matches">
+  <img src="docs/screenshots/game.png" width="23%" alt="Game details with players and team management">
+  <img src="docs/screenshots/profile.png" width="23%" alt="Player profile with rating and match statistics">
+  <img src="docs/screenshots/settings.png" width="23%" alt="Settings with privacy, support and account actions">
 </p>
 
-Скриншоты создаются из настоящих экранов SwiftUI с детерминированными локальными данными. Для них не нужны действующий аккаунт и production-данные.
+The screenshots are generated from the real SwiftUI screens with deterministic local fixtures. They do not depend on a live account or production data.
 
-## Возможности
+## What it includes
 
-- Регистрация и вход по email и паролю, ссылки подтверждения и восстановление пароля.
-- Онбординг, запрос геолокации только во время использования приложения и настройка профиля с загрузкой аватара.
-- Поиск площадок через MapKit, подробная информация, расписание, фотографии и оценки.
-- Создание игр, список своих игр, выбор команды, присоединение и выход, обновления через Realtime.
-- Управляемый сервером жизненный цикл матча и ограниченное по времени голосование за MVP.
-- Общая статистика и статистика по видам спорта с рангами от Bronze до King.
-- Погода Open-Meteo для запланированных игр.
-- Единое оформление собственного и публичного профилей, отображение заблокированных игроков, жалобы и блокировка.
-- Настройки с Privacy Policy, поддержкой, выходом и полным удалением аккаунта.
-- Состояния загрузки, пустого результата, ошибки, повторной попытки и поддержка системных настроек доступности.
+- Email/password authentication, confirmation links, and password recovery.
+- Onboarding, foreground location permission, and profile setup with avatar upload.
+- MapKit park discovery, park details, opening hours, photos, and ratings.
+- Game creation, My Games, team selection, Join/Leave, and Realtime refresh.
+- Server-owned match lifecycle and a time-limited MVP voting flow.
+- Global and per-sport statistics with ranks from Bronze to King.
+- Open-Meteo weather for scheduled games.
+- Unified own/public profiles, blocked-player placeholders, reporting, and blocking.
+- Settings with privacy policy, support, sign out, and permanent account deletion.
+- Loaded, empty, error, retry, and accessibility-aware loading states.
 
-## Технологии
+## Technology
 
-| Область | Технологии |
+| Area | Technology |
 | --- | --- |
-| Клиент | Swift 6, SwiftUI, Swift Concurrency |
-| Фреймворки Apple | MapKit, Core Location, PhotosUI |
+| Client | Swift 6, SwiftUI, Swift Concurrency |
+| Apple frameworks | MapKit, Core Location, PhotosUI |
 | Backend | Supabase Auth, Postgres, RPC, RLS, Realtime, Storage, Edge Functions |
-| Планировщик | `pg_cron` |
-| Погода | Open-Meteo REST API |
-| Зависимости | Swift Package Manager, `supabase-swift` 2.44.1 |
-| Проверка | XCTest, XCUITest, SQL regression tests |
+| Scheduling | `pg_cron` |
+| Weather | Open-Meteo REST API |
+| Dependencies | Swift Package Manager, `supabase-swift` 2.44.1 |
+| Verification | XCTest, XCUITest, SQL regression tests |
 
-Минимальная версия системы — iOS 26.0.
+The app targets iOS 26.0 or newer.
 
-## Архитектура
+## Architecture
 
 ```text
 SwiftUI View
-    ↓ действие пользователя / task / binding
+    ↓ user action / task / binding
 @MainActor ViewModel
-    ↓ async/await через узкий protocol
-Service или Realtime service
+    ↓ async/await through a narrow protocol
+Service or Realtime service
     ├── Supabase Swift SDK → Auth / PostgREST / RPC / Storage / Realtime
     ├── URLSession          → Open-Meteo
-    └── CoreLocation        → геолокация только при открытом приложении
+    └── CoreLocation        → foreground location on device
 ```
 
-View отвечает за представление и навигацию. ViewModel организует асинхронную работу и публикует явное состояние интерфейса. Небольшие service protocols позволяют детерминированно тестировать важные сценарии. Postgres остаётся источником истины для владения данными, вместимости игры, состояния матча, голосования, наград и очистки аккаунта.
+Views own presentation and navigation. ViewModels orchestrate async work and publish explicit UI state. Small service protocols make the important flows deterministic in tests. Postgres remains the source of truth for ownership, game capacity, match state, voting, rewards, and account cleanup.
 
-События Realtime используются как сигналы инвалидировать локальные данные: после события клиент заново загружает достоверное состояние через RPC или таблицу вместо сборки доменной модели из неполного payload.
+Realtime events are treated as invalidation signals: the client receives an event, then reloads an authoritative RPC or table result instead of rebuilding domain state from partial payloads.
 
-Подробнее: [архитектура](docs/ARCHITECTURE.md), [база данных](docs/DATABASE.md), [возможности](docs/FEATURES.md) и [архитектурные решения](docs/DECISIONS.md).
+More detail is available in [Architecture](docs/ARCHITECTURE.md), [Database](docs/DATABASE.md), [Features](docs/FEATURES.md), and [Architecture decisions](docs/DECISIONS.md).
 
-## Инженерные особенности
+## Engineering highlights
 
-- RLS и явные права по принципу минимальных привилегий защищают игры, участников, голоса, статистику, жалобы и блокировки.
-- Привилегированные изменения выполняются через серверные RPC с проверкой владельца и этапа жизненного цикла.
-- Начисление наград и обработка MVP идемпотентны.
-- Повторная загрузка аватара безопасна и ограничена путём, MIME-типом и размером.
-- Удаление аккаунта выполняет защищённая JWT Edge Function, которая очищает связанные данные в базе и Storage.
-- Сценарии авторизованного пользователя проверялись на изолированных тестовых аккаунтах, удалённых после тестирования.
-- 42 изолированных SwiftUI Preview покрывают экраны, переиспользуемые компоненты и состояния ошибок/пустого результата без доступа к сети.
+- Least-privilege RLS and explicit grants protect games, memberships, votes, statistics, reports, and blocks.
+- Privileged mutations go through server-side RPCs with ownership and lifecycle checks.
+- Match rewards and MVP processing are idempotent.
+- Avatar upload is retry-safe and constrained by path, MIME type, and size.
+- Account deletion is handled by a JWT-protected Edge Function and removes related database and Storage data.
+- Authenticated UI journeys were verified with isolated test accounts that were removed after testing.
+- Forty-two isolated SwiftUI previews cover screens, reusable components, and error/empty states without network access.
 
-## Локальный запуск
+## Run locally
 
-Требования: macOS с Xcode 26.4 или новее, установленный iOS 26 Simulator, Git и интернет для Swift Package Manager и внешних API.
+Requirements: macOS with Xcode 26.4 or newer, an iOS 26 simulator, Git, and internet access for Swift Package Manager and the hosted APIs.
 
 ```bash
 git clone https://github.com/Kotyarya/GameSpot.git
@@ -81,25 +81,25 @@ cd GameSpot
 open "Game Spot.xcodeproj"
 ```
 
-Выберите схему `Game Spot`, любой доступный симулятор с iOS 26 или новее и запустите приложение. Swift Package Manager разрешит зависимости автоматически.
+Select the `Game Spot` scheme and an iOS 26 simulator, then run the app. Swift Package Manager resolves the dependencies automatically.
 
-Клиент читает `SupabaseURL` и `SupabasePublishableKey` из `Game-Spot-Info.plist`. Публичный publishable/anon key допустим в клиентском приложении. Service-role keys, пароли базы данных, access tokens и данные тестовых аккаунтов нельзя добавлять в приложение или Git.
+The client reads `SupabaseURL` and `SupabasePublishableKey` from `Game-Spot-Info.plist`. A publishable/anon key is appropriate for a client application; service-role keys, database passwords, access tokens, and test credentials must never be added to the app or Git.
 
-Для подключения другого проекта Supabase замените два публичных клиентских значения и примените версионируемые миграции. Подробные инструкции по запуску, локальному backend, физическому устройству и тестированию находятся в [руководстве по настройке](docs/SETUP.md).
+For a different Supabase project, replace the two public client values and apply the versioned migrations. The exact setup, local backend, physical-device, and test instructions are in [Setup](docs/SETUP.md).
 
-## Проверка
+## Verification
 
-Запуск unit-тестов:
+Run the unit target:
 
 ```bash
 xcodebuild test \
   -project "Game Spot.xcodeproj" \
   -scheme "Game Spot" \
-  -destination 'platform=iOS Simulator,name=<имя доступного симулятора>' \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' \
   -only-testing:'Game SpotTests'
 ```
 
-Release-сборка без подписи:
+Build the Release configuration without signing:
 
 ```bash
 xcodebuild build \
@@ -110,53 +110,55 @@ xcodebuild build \
   CODE_SIGNING_ALLOWED=NO
 ```
 
-Для проверки backend запустите локальный Supabase, восстановите базу из истории миграций и выполните SQL-скрипты из `supabase/tests/database/`. Никогда не выполняйте reset для hosted production-проекта.
+For backend verification, start the local Supabase stack, reset it from the migration history, and run the scripts in `supabase/tests/database/`. Never reset the hosted project.
 
-Подтверждённые результаты:
+Current verification evidence:
 
-- Release-сборка для симулятора прошла успешно.
-- Полный набор из 152 unit-тестов прошёл успешно.
-- Навигация авторизованного пользователя, профиль и настройки, жалобы и блокировки, удаление аккаунта проверены на изолированных аккаунтах.
-- Локальное восстановление схемы, SQL regression tests и проверки безопасности Supabase прошли успешно.
+- Release simulator build: passed.
+- Full unit target on iPhone 17 Pro / iOS 26.5: passed.
+- Authenticated tab navigation, profile/settings, reporting/blocking, and account-deletion journeys: passed with isolated test accounts.
+- Local schema reset, database regression tests, and Supabase security checks: passed.
 
-## Структура репозитория
+## Repository structure
 
 ```text
 Game Spot/
-├── AppState/          # состояние сессии и навигация
-├── Core/              # модели, сервисы, менеджеры и конфигурация
+├── AppState/          # session state and navigation
+├── Core/              # models, services, managers, configuration
 ├── Features/          # Auth, Map, Games, Profile, Settings
-├── UI/                # общие визуальные компоненты
-├── PreviewSupport/    # детерминированные Preview экранов и компонентов
-└── Debug/             # harness для UI-тестов и портфолио-скриншотов
+├── UI/                # shared visual components
+├── PreviewSupport/    # deterministic screen/component previews
+└── Debug/             # UI-test and portfolio screenshot harnesses
 
-Game SpotTests/        # unit-тесты и тесты ViewModel
-Game SpotUITests/      # UI-тесты и сценарии авторизованного пользователя
+Game SpotTests/        # unit and ViewModel tests
+Game SpotUITests/      # UI tests and authenticated journeys
 supabase/
-├── migrations/        # воспроизводимая схема, RLS, функции и индексы
-├── functions/         # Edge Function удаления аккаунта
+├── migrations/        # reproducible schema, RLS, functions, and indexes
+├── functions/         # account-deletion Edge Function
 └── tests/database/    # SQL regression suite
-docs/                  # архитектура, настройка, backend, решения и скриншоты
+docs/                  # architecture, setup, backend, decisions, and screenshots
 ```
 
-## Документация
+## Documentation
 
-- [Настройка проекта](docs/SETUP.md)
-- [Архитектура](docs/ARCHITECTURE.md)
-- [База данных и backend](docs/DATABASE.md)
-- [Пользовательские возможности](docs/FEATURES.md)
-- [Архитектурные решения](docs/DECISIONS.md)
-- [Каталог SwiftUI Preview](docs/PREVIEWS.md)
-- [Политика конфиденциальности](docs/privacy-policy.md)
+- [Project setup](docs/SETUP.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Database and backend](docs/DATABASE.md)
+- [Feature flows](docs/FEATURES.md)
+- [Architecture decisions](docs/DECISIONS.md)
+- [SwiftUI preview catalog](docs/PREVIEWS.md)
+- [Privacy Policy](docs/privacy-policy.md)
 
-Публичная политика конфиденциальности: <https://kotyarya.github.io/GameSpot/>
+Public Privacy Policy: <https://kotyarya.github.io/GameSpot/>
 
-Поддержка: `gamespot.support@icloud.com`
+Support: `gamespot.support@icloud.com`
 
-## Объём и статус
+## Scope and status
 
-GameSpot завершён как портфолио-приложение. Монетизация, аналитика, push-уведомления, offline-режим, фоновая геолокация и развитие в социальную сеть намеренно не входят в текущий объём. TestFlight и публикация в App Store для этой версии также не требуются.
+GameSpot is complete as a portfolio application. Monetization, analytics, push notifications, offline mode, background location, and social-feed expansion are intentionally outside the current scope. TestFlight and App Store publication are also not required for this version.
 
-## Автор
+The only optional QA item left is one uninterrupted manual two-account walkthrough from clean installation through registration, onboarding, park discovery, game creation, Join/Leave, match completion, and MVP voting. The individual parts have already been covered by unit tests, UI tests, and production E2E checks.
 
-Проект создан Максимом Аксамитным как дипломное iOS-приложение и работа для портфолио.
+## Author
+
+Created by Maksim Aksamitnyi as an iOS diploma and portfolio project.

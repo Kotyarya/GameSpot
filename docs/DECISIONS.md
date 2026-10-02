@@ -1,203 +1,133 @@
-# Ключевые технические решения
+# Key Technical Decisions
 
-Это упрощённый журнал ADR. Где первоначальная причина выбора не зафиксирована, она явно помечена как неизвестная; наблюдаемая польза не выдаётся за историческую мотивацию.
+This is a compact Architecture Decision Record. Where the original motivation was not recorded, the document says so instead of presenting an observed benefit as historical fact.
 
-## ADR-001 — нативный SwiftUI client
+## ADR-001 — Native SwiftUI Client
 
-**Context.** GameSpot создан как iOS/diploma/portfolio приложение. Точная запись первоначального сравнения UIKit, Flutter и других вариантов не найдена.
+**Context.** GameSpot is an iOS diploma and portfolio application; no original UIKit/Flutter comparison survives.
 
-**Decision.** Использовать Swift/SwiftUI, MapKit, Core Location и Swift Concurrency. Minimum target — iOS 26.0; интерфейс использует iOS 26 Liquid Glass APIs.
+**Decision.** Use Swift, SwiftUI, MapKit, Core Location, and Swift Concurrency. The minimum target is iOS 26.0 and the UI uses iOS 26 Liquid Glass APIs.
 
-**Reason.** Историческая причина выбора неизвестна. Фактически стек демонстрирует современную нативную iOS-разработку и тесную интеграцию с Apple frameworks.
+**Consequences.** Strong Apple-framework integration and simple system permissions, but an Apple-only product with a high deployment target and recent Xcode requirement.
 
-**Consequences.** Простой доступ к MapKit и системным permissions; только Apple platform; высокий deployment target резко ограничивает совместимые устройства и требует нового Xcode.
+## ADR-002 — Supabase as the Complete Backend
 
-## ADR-002 — Supabase как единый backend
+**Context.** The app needs authentication, relational data, server functions, files, and live updates.
 
-**Context.** Нужны Auth, relational data, server functions, files и live updates. Документированного исходного vendor comparison нет.
+**Decision.** Use hosted Supabase Auth, Postgres, PostgREST/RPC, Realtime, Storage, and Edge Functions.
 
-**Decision.** Использовать hosted Supabase: Auth + Postgres + PostgREST/RPC + Realtime + Storage + Edge Functions.
+**Consequences.** Less infrastructure and no separate server repository, with a strong dependency on Supabase APIs, correct RLS/grants, versioned migrations, and internet access.
 
-**Reason.** Историческая причина неизвестна. Наблюдаемый результат — один backend покрывает все требования небольшого портфолио-приложения без отдельного server repository.
+## ADR-003 — Feature-Oriented MVVM Without a Separate Domain Layer
 
-**Consequences.** Меньше инфраструктуры; сильная связь с Supabase APIs и policies; критично правильно настроить RLS/grants и version migrations; app требует internet.
+**Decision.** Use Views, `@MainActor ObservableObject` ViewModels, and domain services. Group feature code by screen area and shared models/services under Core.
 
-## ADR-003 — feature-oriented MVVM без отдельного domain/repository слоя
+**Consequences.** Data flow is readable and protocol-testable, but ViewModels sometimes coordinate infrastructure operations and large Views still contain presentation logic.
 
-**Context.** UI должен отделять async state от сетевых вызовов, но проект остаётся небольшим.
+## ADR-004 — Shared Production Services with Protocol Testing Seams
 
-**Decision.** Views + `@MainActor ObservableObject` ViewModels + domain services. Files группируются по Features, общие Models/Services — в Core.
+**Context.** Early ViewModel tests contacted live Supabase/Open-Meteo and depended on order and Realtime state.
 
-**Reason.** Это соответствует текущему коду и удерживает portfolio scope. Отдельный repository/use-case слой не добавлялся без необходимости.
+**Decision.** Keep shared production defaults but accept narrow service protocols through initializers.
 
-**Consequences.** Поток данных читаем и тестируем через protocols; ViewModels местами координируют несколько инфраструктурных операций; некоторые большие Views всё ещё содержат presentation logic.
+**Consequences.** Deterministic unit tests with simple runtime wiring; environment replacement is harder than with a complete composition root.
 
-## ADR-004 — singleton production services + protocol seams для tests
+## ADR-005 — PostgreSQL Owns Gameplay Rules
 
-**Context.** Первоначальные ViewModel tests вызывали live Supabase/Open-Meteo и зависели от порядка/Reatime state.
+**Decision.** Perform game-state mutations through `SECURITY DEFINER` RPCs using `auth.uid()`, row locks, and server time. Revoke direct client writes to server-owned tables.
 
-**Decision.** Оставить `shared` service defaults в production, но принимать узкие protocols через initializer.
+**Consequences.** Capacity, ownership, time, votes, and rewards are consistent across clients. Function bodies, grants, and search paths become security-critical and require review.
 
-**Reason.** Минимальное изменение устраняет внешние зависимости unit tests без внедрения DI framework.
+## ADR-006 — Read-Mostly Data API and Explicit Grants
 
-**Consequences.** Tests детерминированы; production wiring остаётся простым. Полноценная смена environment или deep dependency graph будет сложнее, чем с composition root.
+**Decision.** Let `anon` read only the static catalog and `authenticated` read the game/profile data required by the UI. Allow writes through RPCs except for five safe profile columns.
 
-## ADR-005 — PostgreSQL является источником истины для игровых правил
+**Consequences.** Smaller attack surface and protected calculated statistics; each new mutation requires a migration/RPC rather than only a Swift call.
 
-**Context.** Client можно модифицировать; прямые table writes и UI-only checks не защищают capacity, ownership, time и rewards.
+## ADR-007 — Versioned Baseline and Forward-Only Migrations
 
-**Decision.** Все state mutations игры выполняются через `SECURITY DEFINER` RPC с `auth.uid()`, row locks и server time. Direct client writes server-owned tables отозваны.
+**Context.** The backend originally existed only in production without migration history.
 
-**Reason.** Нельзя позволять клиенту подменять creator, membership, votes или statistics.
+**Decision.** Record an exact baseline in Git, register it against the existing hosted project without rerunning CREATE statements, and add fixes as new migrations.
 
-**Consequences.** Правила едины для всех clients и проверяемы SQL tests. Functions становятся security-critical API; каждый body/grant/search_path требует review.
+**Consequences.** New environments are reproducible. Existing production requires a strict distinction between registering and executing the baseline. Applied migrations are never edited.
 
-## ADR-006 — read-mostly Data API и явные grants
+## ADR-008 — Cron-Driven Match Lifecycle
 
-**Context.** RLS с broad `USING/WITH CHECK true` позволял обходить RPC.
+**Decision.** Run four idempotent lifecycle functions every minute: start, finish, open voting/award participation, and process MVP.
 
-**Decision.** `anon` читает только статический каталог; `authenticated` читает нужные game/profile data; writes разрешены через RPC, кроме пяти safe profile columns.
+**Consequences.** State changes do not depend on an open iPhone, although UI transitions can lag by up to one minute. Cron and service-role access must remain unavailable to clients.
 
-**Reason.** Least privilege и защита вычисляемой статистики.
+## ADR-009 — Three-Minute MVP Window and Deterministic Tie-Break
 
-**Consequences.** Меньше attack surface. Добавление новой client mutation требует migration/RPC, а не только Swift call.
+**Decision.** Award participation once after a valid match finishes, keep MVP voting open until three minutes after the end, and break equal vote counts by player UUID.
 
-## ADR-007 — версионируемый baseline и миграции только вперёд
+**Consequences.** Processing is repeatable and tests are deterministic. The short window suits a demo but may need revision for a real user base.
 
-**Context.** Backend был создан вручную в production, migration history отсутствовала.
+## ADR-010 — Realtime as Invalidation
 
-**Decision.** Зафиксировать точный baseline в Git, зарегистрировать его в existing production без повторного CREATE и оформлять исправления отдельными migrations.
+**Decision.** Treat each Realtime event as a signal to rerun the authoritative query or RPC rather than locally applying a partial row payload.
 
-**Reason.** Воспроизводимость, code review и возможность восстановить новый environment.
+**Consequences.** Correct composite snapshots at the cost of more requests. Higher traffic would require debounce, coalescing, or more targeted updates.
 
-**Consequences.** Новый environment поднимается clean reset. Existing production требует осторожного distinction между «register baseline» и «execute baseline». Applied migrations не редактируются.
+## ADR-011 — Unique Realtime Channel per Instance
 
-## ADR-008 — server-driven match lifecycle через cron
+**Decision.** Give every Realtime service a unique channel, register handlers before subscribing, and remove the channel during cleanup.
 
-**Context.** Статус должен меняться даже когда ни один iPhone не открыт. Исходный 20-second voting threshold конфликтовал с duration.
+**Consequences.** Screen and test lifecycles do not conflict, provided ViewModels unsubscribe and do not remain alive unnecessarily.
 
-**Decision.** Четыре idempotent lifecycle functions запускаются `pg_cron` каждую минуту: start, finish, open voting/rewards, process MVP.
+## ADR-012 — Fixed Avatar Path with Upsert
 
-**Reason.** Server time и независимость от client lifecycle.
+**Decision.** Store one `{userId}/avatar.jpg`, resize the client image to at most 1024 px and 5 MiB JPEG, upload with `upsert:true`, and use a cache-busting URL.
 
-**Consequences.** Переходы могут визуально запаздывать до минуты; rules централизованы; cron/service role должны быть закрыты от clients.
+**Consequences.** Safe retries, simple deletion, and no orphaned versions; no avatar history is retained.
 
-## ADR-009 — трёхминутное окно MVP и deterministic tie-break
+## ADR-013 — Public-Download Avatar Bucket
 
-**Context.** Голосование должно быть после фактического окончания и завершаться автоматически.
+**Decision.** Keep downloads public for the existing `avatar_url` model while restricting listing, metadata, writes, and deletion to the owner folder.
 
-**Decision.** Для достаточного состава участие награждается один раз после finish, voting открывается до `end + 3 minutes`, затем MVP выбирается по vote count и UUID при tie.
+**Consequences.** Anyone with the exact object URL can download it. Strict privacy would require a private bucket, signed URLs, and a different client model.
 
-**Reason.** Исправляет противоречивое исходное состояние и делает processing повторяемым/tests deterministic.
+## ADR-014 — Account Deletion Through an Edge Function
 
-**Consequences.** Окно короткое и подходит demo, но может быть неудобно реальным игрокам. Изменение duration требует migration и синхронизации UI/docs/tests.
+**Decision.** A JWT-protected DELETE Edge Function reads identity only from verified claims, runs service-only SQL cleanup, and uses Auth Admin to delete the user.
 
-## ADR-010 — Realtime как сигнал обновления, а не локальное применение событий
+**Consequences.** The iOS app never contains a service key. The deployable function and its multi-step external work must remain retry-safe.
 
-**Context.** Composite RPC models содержат joins/counts/highlights, которые сложно корректно обновлять одним row payload.
+## ADR-015 — Preserve Shared Match History After Account Deletion
 
-**Decision.** Realtime event служит сигналом повторно вызвать authoritative query/RPC.
+**Decision.** Set `games.creator_id` to NULL while deleting personal memberships, votes, statistics, reviews, and profile data and rebuilding park aggregates.
 
-**Reason.** Простота и корректность текущего масштаба.
+**Consequences.** Other participants retain their match history. List RPCs and Swift models must accept a missing creator.
 
-**Consequences.** Больше network requests; UI получает согласованный snapshot. При росте нагрузки потребуется debounce/coalescing или более точечные updates.
+## ADR-016 — Email and Password Only for Version 1.0
 
-## ADR-011 — уникальный канал Realtime для каждого экземпляра
+**Context.** A disabled Sign in with Apple control was visible, but OAuth was not implemented.
 
-**Context.** Общий channel name и регистрация callback после subscribe создавали order-dependent test/runtime failure.
+**Decision.** Remove Apple sign-in and keep working email/password authentication and recovery.
 
-**Decision.** Каждый realtime service создаёт уникальный channel, регистрирует handlers до subscribe и удаляет channel при cleanup.
+**Consequences.** A smaller, truthful authentication surface. Apple sign-in can return only as a complete separate feature.
 
-**Reason.** Изоляция lifecycle экранов и повторных tests.
+## ADR-017 — Custom URL Scheme for Auth Callbacks
 
-**Consequences.** Нет конфликтов shared channel; важно сохранять unsubscribe в `deinit` и не создавать лишние долгоживущие ViewModels.
+**Decision.** Use `gamespot://auth/confirmed` and `gamespot://auth/recovery`, route by scheme/host/path, and exchange PKCE sessions through the Supabase SDK.
 
-## ADR-012 — фиксированный путь аватара и upsert
+**Consequences.** Hosted Supabase must allow-list both URLs. Another app can claim a custom scheme, so PKCE/token verification remains mandatory; Universal Links would be stronger for a larger product.
 
-**Context.** Upload `{userId}/avatar.jpg` без upsert ломал повтор после частичного сбоя.
+## ADR-018 — Shared User-Safe Content State
 
-**Decision.** Один fixed object per user, client resize до 1024 px/JPEG <= 5 MiB, `upsert:true`, cache-busting URL; owner-folder policies.
+**Decision.** Use `ContentStateView`, explicit loading/error/empty values, and Retry actions rather than raw `localizedDescription` or ambiguous empty content.
 
-**Reason.** Retry safety и отсутствие orphaned avatar versions.
+**Consequences.** Predictable UI and stable test identifiers, with ViewModels responsible for explicit state and cancellation paths.
 
-**Consequences.** Простое удаление и quota; история фотографий не хранится; CDN cache обходится query parameter.
+## ADR-019 — On-Device Location and Keyless Weather Provider
 
-## ADR-013 — публичное скачивание аватаров из bucket
+**Decision.** Keep foreground Core Location data on the device and send only the selected park coordinates/time to Open-Meteo.
 
-**Context.** Roster/profile UI должен показывать avatars по обычному URL. Изначальный bucket уже был public.
+**Consequences.** No background tracking or backend location rows, but the forecast requires internet and depends on an external provider.
 
-**Decision.** Сохранить public download, но закрыть listing/metadata/write/delete owner policies.
+## ADR-020 — Portfolio Scope Before Scale
 
-**Reason.** Минимальная совместимость с существующей моделью `avatar_url` и portfolio scope.
+**Decision.** Do not add monetization, analytics, speculative infrastructure, broad refactors, or high-load optimization without a concrete release blocker.
 
-**Consequences.** Знающий object URL может скачать avatar. Для строгой приватности нужны private bucket и signed URLs; Privacy Policy не должна обещать абсолютную приватность URL.
-
-## ADR-014 — удаление аккаунта через Edge Function
-
-**Context.** Auth Admin delete и service-role data cleanup нельзя выполнять из iOS.
-
-**Decision.** JWT-protected DELETE Edge Function получает user ID только из verified claims, вызывает service-only SQL cleanup и Auth Admin delete.
-
-**Reason.** Выполнить App Store account deletion без service key в client.
-
-**Consequences.** Есть отдельный deployable artifact. Shared games сохраняются с nullable creator; partial external steps должны быть retry-safe.
-
-## ADR-015 — сохранить shared match history при удалении аккаунта
-
-**Context.** Полное удаление созданных games уничтожило бы историю других участников.
-
-**Decision.** Обнулить `games.creator_id`, удалить персональные membership/votes/stats/reviews/profile и пересчитать park aggregates.
-
-**Reason.** Баланс удаления персональной связи и целостности shared data.
-
-**Consequences.** Game остаётся без creator. `games.creator_id`, контракты list RPC и Swift `Game.creatorId` допускают `NULL`/`nil`. Park Details, My Games, Game Details и Recent Matches продолжают показывать сохранённую игру оставшимся участникам.
-
-## ADR-016 — email/password только для версии 1.0
-
-**Context.** Sign in with Apple был видимым, но disabled; полноценный OAuth не реализован.
-
-**Decision.** Удалить Apple sign-in из 1.0, оставить рабочий email/password и recovery.
-
-**Reason.** Не обещать App Review недоступную функцию и не расширять portfolio scope.
-
-**Consequences.** Меньше auth surface; Apple login можно вернуть только полноценной отдельной задачей.
-
-## ADR-017 — custom URL scheme для Auth callbacks
-
-**Context.** Native app должен получить confirmation/recovery PKCE callback.
-
-**Decision.** `gamespot://auth/confirmed` и `gamespot://auth/recovery`, routing по scheme/host/path, session exchange через Supabase SDK.
-
-**Reason.** Минимальный native flow без отдельного universal-link domain.
-
-**Consequences.** URL must be allow-listed в hosted Supabase. Custom schemes могут быть заявлены другим app; PKCE/token verification остаётся обязательным. Universal Links были бы сильнее для развитого продукта.
-
-## ADR-018 — единый user-safe content state
-
-**Context.** Ошибки выглядели как empty content или raw `localizedDescription`.
-
-**Decision.** Общий `ContentStateView`, отдельные loading/error/empty values и Retry на reviewer journey.
-
-**Reason.** Предсказуемость UI и отсутствие технических details.
-
-**Consequences.** Единый стиль и test IDs; ViewModels должны поддерживать явный state и cancellation paths.
-
-## ADR-019 — on-device location и внешний weather без API key
-
-**Context.** Карта должна показывать позицию, Game Info — forecast.
-
-**Decision.** Core Location when-in-use остаётся на устройстве; Open-Meteo получает только координаты выбранного park/time.
-
-**Reason.** Фактический код и минимальная privacy/data surface. Первоначальная причина выбора Open-Meteo не зафиксирована.
-
-**Consequences.** Нет background tracking и location rows в backend; нужен internet; forecast range ограничен; availability зависит от внешнего provider.
-
-## ADR-020 — portfolio scope важнее масштабирования
-
-**Context.** Текущая цель — законченное приложение для портфолио, а не startup growth.
-
-**Decision.** Не добавлять monetization, analytics, speculative infrastructure, broad refactors и high-load optimization без release blocker.
-
-**Reason.** Сохранить понятный, проверяемый scope и сосредоточить проект на демонстрации iOS/backend engineering.
-
-**Consequences.** Дальнейшее развитие должно начинаться с нового аудита требований и нагрузки, а не с предположения, что portfolio-архитектура уже готова к масштабу.
+**Consequences.** The project stays understandable and verifiable. Any startup expansion should begin with a new requirements and load audit rather than assuming the portfolio architecture is already production-scale.

@@ -1,70 +1,70 @@
-# Каталог SwiftUI Preview
+# SwiftUI Preview inventory
 
-В проекте есть детерминированный каталог Preview для всех пользовательских экранов SwiftUI. Все объявления `#Preview` находятся в `PreviewSupport` и разделены на небольшие файлы по функциональности, поэтому Xcode Canvas не показывает один перегруженный список. Откройте нужный файл `*Previews.swift` в Xcode и включите Canvas. Каждый Preview использует фиксированные локальные данные и не требует авторизованной сессии Supabase, разрешения на геолокацию или фото, а также подключения к сети.
+The project includes a deterministic preview catalog for the user-facing SwiftUI surface. All `#Preview` declarations live in `PreviewSupport` and are split into small feature-based files, so Xcode Canvas never needs to display one oversized selector. Open the relevant `*Previews.swift` file in Xcode and show the Canvas. Every preview uses fixed local data; it does not require a signed-in Supabase session, location permission, Photos access, or network connectivity.
 
-## Устройство Preview
+## Preview architecture
 
-- `PreviewFixtures.swift` содержит фиксированных пользователей, профили, виды спорта, игры, площадки, статистику, погоду, заблокированных пользователей и даты.
-- Каталоги экранов разделены на сценарии приложения, основные вкладки, карту, игры, профиль и системные состояния.
-- Каталоги компонентов разделены на игровые, командные, профильные и визуальные элементы; в каждом файле находится не более шести Preview.
-- Preview-сервисы реализуют те же небольшие protocols, что и production-сервисы, но возвращают локальные значения и не выполняют сетевые запросы или запись в backend.
-- Инициализаторы экранов принимают ViewModel с production-значениями по умолчанию. Обычное приложение сохраняет прежнее поведение, а Preview внедряют изолированные зависимости.
-- Все fixtures, сервисы и каталоги Preview защищены условием `#if DEBUG`; секретов и production-данных пользователей в них нет.
+- `PreviewFixtures.swift` contains fixed users, profiles, sports, games, parks, statistics, weather, blocked users, and dates.
+- Screen catalogs are grouped into app flow, main tabs, map, games, profile, and system-state files.
+- Component catalogs are grouped into game, team, profile, and visual-component files; each catalog contains at most six previews.
+- Preview services conform to the same small protocols as production services, but return local values and make no network calls or backend writes.
+- Screen initializers accept ViewModels with production defaults. The app's runtime call sites therefore keep their existing behavior, while previews inject isolated dependencies.
+- All preview-only fixtures, services, and catalogs are guarded by `#if DEBUG`; no secrets or production user data are included.
 
-## Пользовательские экраны
+## User-facing screens
 
-| Экран | Покрытие Preview |
+| Screen | Preview coverage |
 | --- | --- |
-| `RootView` | Корневое состояние без авторизации |
-| `AuthView` | Форма входа |
-| `PasswordResetRequestView` | Запрос ссылки восстановления |
-| `PasswordRecoveryView` | Форма нового пароля |
-| `OnBoardingView` | Первая страница онбординга |
-| `ProfileSetupView` | Локально загруженные виды спорта |
-| `MainTabView` | Полный набор вкладок с локальными зависимостями |
-| `MapView` | Загруженное, пустое и ошибочное состояния |
-| `ParkInfoView` | Загруженная информация о площадке |
-| `GamesView` | Загруженное, пустое и ошибочное состояния |
-| `CreateGameView` | Форма создания игры |
-| `GameInfoView` | Игра, состав, погода и список блокировок |
-| `JoinGameSheetView` | Выбор команды для присоединения |
-| `ProfileView` | Загруженный профиль и ошибка |
-| `PublicProfileView` | Публичный профиль игрока |
-| `SettingsView` | Список настроек |
-| `BlockedUsersView` | Загруженный и пустой списки |
-| `PrivacyPolicyView` | Содержимое политики конфиденциальности |
-| `ContentStateView` | Ошибка и пустой результат |
-| `LoadingView` | Фирменное состояние загрузки |
-| `NativeLoadingView` | Минималистичная системная загрузка |
+| `RootView` | Signed-out root state |
+| `AuthView` | Sign-in form |
+| `PasswordResetRequestView` | Reset request form |
+| `PasswordRecoveryView` | New-password form |
+| `OnBoardingView` | First onboarding page |
+| `ProfileSetupView` | Locally loaded sports |
+| `MainTabView` | Complete tab shell with local dependencies |
+| `MapView` | Loaded, empty, and error |
+| `ParkInfoView` | Loaded park details |
+| `GamesView` | Loaded, empty, and error |
+| `CreateGameView` | Create form |
+| `GameInfoView` | Loaded game, roster, weather, and block list |
+| `JoinGameSheetView` | Joined-player team selection |
+| `ProfileView` | Loaded and error |
+| `PublicProfileView` | Loaded player profile |
+| `SettingsView` | Settings list |
+| `BlockedUsersView` | Loaded and empty |
+| `PrivacyPolicyView` | Policy content |
+| `ContentStateView` | Error and empty |
+| `LoadingView` | Branded loading state |
+| `NativeLoadingView` | Minimal native loading state |
 
-## Переиспользуемые компоненты
+## Reusable components
 
-| Компонент | Покрытие Preview |
+| Component | Preview coverage |
 | --- | --- |
-| `GameCard` | Карточки предстоящей и завершённой игры |
-| `SportGlassPin` | Метка футбольной площадки на карте |
-| `RankBadgesShowcaseView` | Полная сетка рангов |
-| `TeamSectionView` | Частично заполненная команда |
-| `PlayerSlotRow` | Строка текущего игрока |
-| `EmptySlotRow` | Свободное место в команде |
-| `ProfileAvatarView` | Локальный резервный аватар |
-| `ProfileHeroView` | Верхняя часть профиля |
-| `ProfileSummaryCard` | Общие показатели |
-| `ProfileSportStatsSection` | Несколько видов спорта |
-| `PatternBackground` | Фон с повторяющимися символами |
-| `RecentMatchCard` | Результат матча с MVP |
-| `MVPVoteRow` | Выбранный вариант голосования |
+| `GameCard` | Upcoming and finished cards |
+| `SportGlassPin` | Football map pin |
+| `RankBadgesShowcaseView` | Full rank grid |
+| `TeamSectionView` | Partially filled team |
+| `PlayerSlotRow` | Current-player row |
+| `EmptySlotRow` | Joinable slot |
+| `ProfileAvatarView` | Local fallback avatar |
+| `ProfileHeroView` | Hero composition |
+| `ProfileSummaryCard` | Overall metrics |
+| `ProfileSportStatsSection` | Multiple sports |
+| `PatternBackground` | Repeating symbol pattern |
+| `RecentMatchCard` | MVP match result |
+| `MVPVoteRow` | Selected vote state |
 
-## Намеренные исключения
+## Intentional exclusions
 
-- `RootAppContent` и `ReportUserSheet` — закрытые детали реализации, которые проверяются через родительские экраны.
-- `ContentStateUITestHarness` и `TeamActionUITestHarness` используются только UI-тестами и не являются пользовательскими экранами.
-- Маленькие закрытые subviews внутри экранов покрываются Preview родительского экрана без дублирования.
+- `RootAppContent` and `ReportUserSheet` are private implementation details and are exercised through their parent screens.
+- `ContentStateUITestHarness` and `TeamActionUITestHarness` are UI-test-only harnesses, not product screens.
+- Small private subviews declared inside screens are covered by the containing screen preview instead of receiving duplicate previews.
 
-## Проверка
+## Verification checklist
 
-1. Выберите схему `Game Spot` и симулятор iPhone.
-2. Откройте папку `PreviewSupport`, выберите нужный каталог и именованный Preview в Canvas.
-3. Убедитесь, что загруженные, пустые и ошибочные состояния отображаются без credentials и сети.
-4. Выполните Debug-сборку, чтобы скомпилировать macros и вспомогательный код Preview.
-5. Перед объединением изменений выполните Release-сборку и соответствующие unit/UI-тесты.
+1. Select the `Game Spot` scheme and an iPhone simulator.
+2. Open the `PreviewSupport` folder, choose the relevant feature catalog, and select a named preview in the Canvas.
+3. Confirm loaded, empty, and error variants render without credentials or connectivity.
+4. Run the Debug build to compile all preview macros and support code.
+5. Run the Release build and the unit/UI test suites before merging preview changes.

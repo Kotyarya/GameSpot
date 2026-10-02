@@ -1,17 +1,17 @@
-# Архитектура GameSpot
+# GameSpot Architecture
 
-Документ описывает текущую архитектуру versioned client и backend-кода в репозитории.
+This document describes the current versioned client and backend architecture in the repository.
 
-## Общая схема
+## System Overview
 
-GameSpot — feature-oriented SwiftUI-приложение с MVVM-подобным разделением. Отдельного repository/domain слоя нет: ViewModel обращается к узкому service protocol, production-реализация которого использует общий Supabase client или внешний HTTP API.
+GameSpot is a feature-oriented SwiftUI application with an MVVM-style separation. There is no separate repository or domain layer: each ViewModel talks to a narrow service protocol whose production implementation uses the shared Supabase client or an external HTTP API.
 
 ```text
 SwiftUI View
     │ user action / .task / binding
     ▼
 @MainActor ObservableObject ViewModel
-    │ async/await через узкий protocol
+    │ async/await through a narrow protocol
     ▼
 Service / Realtime service / Manager
     ├── Supabase Swift SDK ── Auth / PostgREST / RPC / Storage / Realtime
@@ -22,19 +22,19 @@ Service / Realtime service / Manager
                     Supabase Postgres / Edge Function
 ```
 
-Протоколы появились не как полноценный dependency container, а как минимальная seam для детерминированных tests. Production defaults по-прежнему используют `shared` services.
+The protocols are deliberately small testing seams rather than a complete dependency container. Production defaults still use shared service instances.
 
-## Запуск приложения и глобальное состояние
+## Application Startup and Global State
 
-`Game_SpotApp` создаёт три `@StateObject`:
+`Game_SpotApp` creates three `@StateObject` instances:
 
-- `SessionManager` — session, current user, profile и app state;
-- `AppRouter` — selected tab и отдельные `NavigationPath` для Map/My Games;
-- `AuthLinkCoordinator` — обработка auth/recovery deep links.
+- `SessionManager` owns the session, current user, profile, and application state;
+- `AppRouter` owns the selected tab and separate `NavigationPath` values for Map and My Games;
+- `AuthLinkCoordinator` handles authentication and recovery deep links.
 
-Они передаются через `environmentObject` в `RootView`.
+They are injected into `RootView` through `environmentObject`.
 
-`SessionManager.appState` — вычисляемый state machine:
+`SessionManager.appState` is a computed state machine:
 
 ```text
 session not checked -> loading
@@ -45,214 +45,185 @@ profile incomplete -> profileSetup
 ready              -> main
 ```
 
-`RootView` отдаёт приоритет обработке auth link: пока ссылка обменивается на session показывается loader; recovery link открывает `PasswordRecoveryView`; затем выбирается экран по `SessionManager.appState`.
+Auth-link processing has priority in `RootView`. The app displays a loader while a link is exchanged for a session, opens `PasswordRecoveryView` for recovery links, and otherwise chooses a screen from `SessionManager.appState`.
 
-После sign out, успешного account deletion или завершения recovery `SessionManager` очищает user/profile и возвращает приложение в auth state. После обычного sign in/sign up вызывается `refreshUser()`, затем загружается `profiles`.
+Sign-out, successful account deletion, and completed recovery clear the local user and profile and return the app to authentication. A normal sign-in or sign-up calls `refreshUser()` and then loads `profiles`.
 
-## Навигация
+## Navigation
 
-После входа `MainTabView` создаёт три вкладки:
+After authentication, `MainTabView` exposes three tabs:
 
-- Map — отдельный `NavigationStack` и `mapPath`;
-- My Games — отдельный `NavigationStack` и `gamesPath`;
-- Profile — собственный `NavigationStack`; Settings и его дочерние экраны открываются локальными `NavigationLink`, без маршрутов в `AppRouter`.
+- Map uses its own `NavigationStack` and `mapPath`;
+- My Games uses its own `NavigationStack` and `gamesPath`;
+- Profile uses a local `NavigationStack`; Settings and its child screens use local `NavigationLink` values rather than `AppRouter` routes.
 
-Typed `Route` поддерживает:
+The typed `Route` enum supports `.myGames`, `.parkGames(id:name:)`, `.game(UUID)`, and `.createGame(park:sports:)`. `destination(_:)` constructs the final screen. Profile navigation to Settings, Privacy Policy, and Blocked Users remains local.
 
-- `.myGames`;
-- `.parkGames(id:name:)`;
-- `.game(UUID)`;
-- `.createGame(park:sports:)`.
+## Layers and Responsibilities
 
-Функция `destination(_:)` строит конечный экран. Profile-навигация к `SettingsView`, Privacy Policy и Blocked Users создаётся локально.
+### Views
 
-## Слои и ответственность
+Views own layout, presentation state, navigation, and forwarding user actions to ViewModels. Business validation belongs in ViewModels or the backend, although large views still contain presentation logic such as park status, countdowns, action visibility, and formatting.
 
-### Представления
-
-Views отвечают за layout, presentation state, navigation и отправку действий в ViewModel. Значимая бизнес-валидация должна находиться в ViewModel/backend, но в больших views остаётся часть presentation logic: статус парка, countdown, видимость actions и форматирование.
-
-Основные экраны:
-
-| Экран | Назначение |
+| Screen | Purpose |
 | --- | --- |
-| `AuthView` | sign in, sign up, confirmation/resend, переход к reset request |
-| `OnBoardingView` | вводный carousel и foreground location permission |
-| `ProfileSetupView` | имя пользователя, любимый вид спорта и необязательный аватар |
-| `MapView` | карта активных парков и выбор маркера |
-| `ParkInfoView` | данные площадки, рейтинг, игры и create action |
-| `GamesView` | игры пользователя или выбранного парка |
-| `CreateGameView` | sport/time и создание игры |
-| `GameInfoView` | состав команд, weather, Join/Leave, MVP и состояния матча; заблокированные участники остаются в roster как анонимные non-interactive rows, но исключаются из social detail |
-| `JoinGameSheetView` | выбор команды или выход из матча |
-| `ProfileView` / `PublicProfileView` | общие hero/summary/per-sport components; собственный профиль добавляет Edit/avatar actions, публичный — Report/Block |
-| `SettingsView` | Privacy Policy, Blocked Users, support/about, sign out и удаление аккаунта с системными confirmations |
-| `PasswordResetRequestView` | запрос recovery email |
-| `PasswordRecoveryView` | новый пароль по deep link |
+| `AuthView` | Sign-in, sign-up, confirmation/resend, and password-reset entry |
+| `OnBoardingView` | Introductory carousel and foreground location permission |
+| `ProfileSetupView` | Username, favorite sport, and optional avatar |
+| `MapView` | Active park map and marker selection |
+| `ParkInfoView` | Venue details, ratings, games, and create action |
+| `GamesView` | Games for the current user or selected park |
+| `CreateGameView` | Sport/time selection and game creation |
+| `GameInfoView` | Teams, weather, Join/Leave, MVP voting, and match states; blocked players remain anonymous, non-interactive roster rows |
+| `JoinGameSheetView` | Team selection or leaving a match |
+| `ProfileView` / `PublicProfileView` | Shared profile components; the private profile adds Edit/avatar actions, while the public profile adds Report/Block |
+| `SettingsView` | Privacy Policy, Blocked Users, support/about, sign-out, and account deletion |
+| `PasswordResetRequestView` | Recovery-email request |
+| `PasswordRecoveryView` | New password after a recovery deep link |
 
-`ContentStateView` — единое production-представление error/empty/retry. `LoadingView` — полноэкранная загрузка.
+`ContentStateView` provides the shared production error, empty, and retry presentation. `LoadingView` handles full-screen loading.
 
-### Модели представления
+### ViewModels
 
-| ViewModel | Основная ответственность | Зависимости |
+| ViewModel | Primary responsibility | Dependencies |
 | --- | --- | --- |
-| `AuthViewModel` | нормализация email, sign in/up, confirmation state | `AuthServing` |
-| `ProfileSetupViewModel` | загрузка sports, debounce username, avatar + profile transaction at client level | `ProfileSetupServing`, `SportFetching`, `AvatarStoring` |
-| `MapViewModel` | список активных парков и load error | `ParksFetching` |
-| `ParkDetailsViewModel` | параллельная загрузка деталей, rating state, stale-response protection | `ParkDetailsServing` |
-| `GamesViewModel` | режим My Games/Park, sections source data, Realtime reload | `GamesFetching`, `GamesRealtimeSubscribing` |
-| `CreateGameViewModel` | client validation sport и create RPC | `GameCreating` |
-| `GameInfoViewModel` | детали, необязательная погода, присоединение/выход/голосование, Realtime | `GameInfoServing`, `WeatherFetching`, `GameInfoRealtimeSubscribing` |
-| `ProfileViewModel` | профиль, статистика, недавние матчи, действия с аватаром, Realtime | `ProfileFetching`, `ProfileRealtimeSubscribing`, protocols аватара |
-| `PublicProfileViewModel` | read-only profile и per-sport stats другого игрока | `ProfileFetching` |
-| `AccountDeletionViewModel` | single-flight delete и user-safe error | `AccountDeleting` |
-| `PasswordResetRequestViewModel` | нейтральный результат запроса восстановления | `PasswordRecoveryServing` |
-| `PasswordRecoveryViewModel` | правила и обновление пароля | `PasswordRecoveryServing` |
+| `AuthViewModel` | Email normalization, sign-in/up, confirmation state | `AuthServing` |
+| `ProfileSetupViewModel` | Sports, debounced username checks, avatar and profile setup | `ProfileSetupServing`, `SportFetching`, `AvatarStoring` |
+| `MapViewModel` | Active parks and load errors | `ParksFetching` |
+| `ParkDetailsViewModel` | Parallel detail loading, rating state, stale-response protection | `ParkDetailsServing` |
+| `GamesViewModel` | My Games/Park mode, section data, Realtime reload | `GamesFetching`, `GamesRealtimeSubscribing` |
+| `CreateGameViewModel` | Client validation and create RPC | `GameCreating` |
+| `GameInfoViewModel` | Details, optional weather, Join/Leave/Vote, Realtime | `GameInfoServing`, `WeatherFetching`, `GameInfoRealtimeSubscribing` |
+| `ProfileViewModel` | Profile, stats, recent matches, avatar actions, Realtime | `ProfileFetching`, `ProfileRealtimeSubscribing`, avatar protocols |
+| `PublicProfileViewModel` | Read-only profile and sport statistics for another player | `ProfileFetching` |
+| `AccountDeletionViewModel` | Single-flight deletion and user-safe errors | `AccountDeleting` |
+| `PasswordResetRequestViewModel` | Neutral recovery-request result | `PasswordRecoveryServing` |
+| `PasswordRecoveryViewModel` | Password policy and update | `PasswordRecoveryServing` |
 
-Все ViewModel выполняются на `@MainActor`, поэтому `@Published` state меняется последовательно на UI actor.
+All ViewModels run on `@MainActor`, so `@Published` state changes are serialized on the UI actor.
 
-### Services и managers
+### Services and Managers
 
-| Компонент | Ответственность |
+| Component | Responsibility |
 | --- | --- |
-| `SupabaseService` | единственный `SupabaseClient`, Auth redirect и publishable configuration |
-| `AuthService` | Auth по email/паролю, повторная отправка, восстановление и обмен PKCE-сессии |
-| `ProfileService` | профиль, статистика по видам спорта, недавние матчи и флаги онбординга |
-| `GameService` | клиентские игровые RPC |
-| `ParkService` | прямые catalogue reads и rating RPC |
-| `SportService` | каталог видов спорта |
-| `SupabaseAvatarStorageService` | `{userId}/avatar.jpg`, добавление/замена, удаление и публичный URL |
-| `AccountDeletionService` | вызов DELETE Edge Function с JWT-аутентификацией |
-| `WeatherService` | Open-Meteo hourly forecast и выбор ближайшего часа |
-| `LocationManager` | when-in-use permission и Core Location updates |
-| Realtime services | lifecycle конкретного channel и callbacks для reload |
+| `SupabaseService` | Single `SupabaseClient`, Auth redirect, and publishable configuration |
+| `AuthService` | Email/password Auth, resend, recovery, and PKCE session exchange |
+| `ProfileService` | Profiles, sport statistics, recent matches, and setup flags |
+| `GameService` | Client-facing game RPCs |
+| `ParkService` | Direct catalog reads and rating RPCs |
+| `SportService` | Sports catalog |
+| `SupabaseAvatarStorageService` | `{userId}/avatar.jpg` upload, removal, and public URL |
+| `AccountDeletionService` | JWT-authenticated DELETE request to the Edge Function |
+| `WeatherService` | Open-Meteo hourly forecast and nearest-hour selection |
+| `LocationManager` | When-in-use permission and Core Location updates |
+| Realtime services | Channel lifecycle and reload callbacks |
 
-`AppConfiguration` читает `SupabaseURL` и `SupabasePublishableKey` из bundle Info.plist и останавливает запуск при отсутствующем/невалидном значении. Service-role key в iOS не используется.
+`AppConfiguration` reads `SupabaseURL` and `SupabasePublishableKey` from Info.plist and stops startup when either value is missing or invalid. The iOS app never uses a service-role key.
 
-## Модели
+## Models
 
-`Decodable` модели отражают table/RPC payloads и используют `CodingKeys` для snake_case:
+`Decodable` models mirror table and RPC payloads and use `CodingKeys` for snake_case:
 
 - `Park`, `ParkDetails`, `ParkHour`, `ParkImage`, `ParkRating`, `ParkShort`;
 - `Sport`, `SportType`;
 - `Game`, `GameDetails`, `MVPPlayer`;
 - `Profile`, `Player`, `RecentMatch`;
 - `UserSportStats`;
-- `Weather` и transport DTO Open-Meteo.
+- `Weather` and Open-Meteo transport DTOs.
 
-`Team` строго соответствует Postgres enum: `Team Alpha`, `Team Beta`.
+`Team` maps exactly to the Postgres enum values `Team Alpha` and `Team Beta`.
 
-## Главные цепочки данных
+## Main Data Flows
 
-### Карта и площадка
-
-```text
-MapView
-  -> MapViewModel.load
-  -> ParkService.fetchParks
-  -> SELECT public.parks WHERE is_active = true
-
-ParkInfoView
-  -> ParkDetailsViewModel.load
-  -> ParkService.fetchParkDetails
-  -> parallel SELECT parks / parks_sports+sports / parks_hour /
-                     parks_images / parks_ratings
-```
-
-GPS-координаты показываются MapKit на устройстве. Они не передаются в Supabase.
-
-### Игры
+### Map and Park
 
 ```text
-GamesView
-  -> GamesViewModel.load
-  -> GameService.get_user_games OR get_games_by_park RPC
-  -> [Game]
-  -> GameSectionBuilder(Calendar, now, Locale)
+MapView -> MapViewModel.load -> ParkService.fetchParks
+        -> SELECT public.parks WHERE is_active = true
 
-CreateGameView
-  -> CreateGameViewModel
-  -> create_game RPC
-  -> games + creator membership in one server function
+ParkInfoView -> ParkDetailsViewModel.load
+             -> parallel reads from parks, parks_sports+sports,
+                parks_hour, parks_images, and parks_ratings
 ```
 
-### Детали, команды и MVP
+MapKit processes device coordinates locally. They are not sent to Supabase.
+
+### Games
 
 ```text
-GameInfoView
-  -> GameInfoViewModel.load
-  -> get_game_details RPC -> GameDetails
-  -> Open-Meteo -> optional Weather
+GamesView -> GamesViewModel.load
+          -> get_user_games or get_games_by_park RPC
+          -> GameSectionBuilder(Calendar, now, Locale)
 
-JoinGameSheetView
-  -> GameInfoViewModel.joinGame/leaveGame
-  -> server RPC
-  -> get_game_details reload
-
-MVPVoteRow
-  -> GameInfoViewModel.submitVote
-  -> vote_mvp RPC
-  -> Realtime event -> details reload
+CreateGameView -> CreateGameViewModel -> create_game RPC
+               -> game and creator membership in one server function
 ```
 
-Backend, а не UI, является источником истины для времени, вместимости, участия, голосования и наград.
-
-### Профиль и avatar
+### Details, Teams, and MVP
 
 ```text
-ProfileView
-  -> ProfileViewModel.load
-  -> parallel ProfileService: profiles / user_sport_stats / get_recent_matches
+GameInfoView -> get_game_details RPC -> GameDetails
+             -> Open-Meteo -> optional Weather
 
-selected UIImage
-  -> AvatarImageEncoder (max 1024 px, JPEG <= 5 MiB)
-  -> Storage upsert {userId}/avatar.jpg
-  -> ProfileService.updateAvatar
-  -> local model update + Realtime
+JoinGameSheetView -> join/leave RPC -> details reload
+MVPVoteRow        -> vote_mvp RPC -> Realtime event -> details reload
 ```
 
-Profile Setup выполняет те же операции последовательно. Это не единая database transaction: если Storage succeeded, а profile update упал, retry безопасен благодаря upsert.
+The backend, not the UI, is the source of truth for time, capacity, membership, voting, and rewards.
 
-### Удаление аккаунта
+### Profile and Avatar
+
+```text
+ProfileView -> profiles / user_sport_stats / get_recent_matches
+
+selected UIImage -> AvatarImageEncoder (max 1024 px, JPEG <= 5 MiB)
+                 -> Storage upsert {userId}/avatar.jpg
+                 -> ProfileService.updateAvatar
+                 -> local model update + Realtime
+```
+
+Profile Setup performs the same operations sequentially. Storage and the profile update are not one database transaction, but retry is safe because the upload uses upsert.
+
+### Account Deletion
 
 ```text
 ProfileView -> SettingsView -> AccountDeletionViewModel
-  -> AccountDeletionService DELETE /functions/v1/delete-account
+  -> DELETE /functions/v1/delete-account
   -> gateway verifies JWT
   -> remove avatar
   -> service-role delete_user_data(user from claims)
   -> Auth admin deleteUser
-  -> client clears local session only after deleted=true
+  -> client clears local session after deleted=true
 ```
 
-## Обновления Realtime
+## Realtime Updates
 
-Клиент использует Postgres Changes, а payload обычно служит сигналом перечитать authoritative RPC/table result.
+Postgres Changes payloads normally act as invalidation signals. The client reloads the authoritative RPC or table result rather than reconstructing domain state from a partial event.
 
-| Контекст | Tables | Фильтр/реакция |
+| Context | Tables | Reaction |
 | --- | --- | --- |
-| Games list | `games`, `game_members` | AnyAction, затем reload текущего режима |
-| Game details | `games`, `game_members`, `game_mvp_votes` | по `gameId`, затем details reload |
-| Profile | `profiles`, `user_sport_stats` | по `userId`; profile decode или stats/recent reload |
+| Games list | `games`, `game_members` | Reload the current mode after any relevant action |
+| Game details | `games`, `game_members`, `game_mvp_votes` | Filter by `gameId`, then reload details |
+| Profile | `profiles`, `user_sport_stats` | Filter by `userId`; decode profile or reload stats/recent matches |
 
-Каждый экземпляр получает уникальный channel. Handlers регистрируются до `subscribeWithError()`. `deinit` вызывает `unsubscribe`, отменяет subscriptions и удаляет channel из client.
+Every service instance receives a unique channel. Handlers are installed before `subscribeWithError()`. Deinitialization unsubscribes, cancels subscriptions, and removes the channel from the client.
 
-## Где живёт бизнес-логика
+## Business-Logic Boundaries
 
-- security, ownership, capacity, time, lifecycle, rewards, rating aggregation и deletion — PostgreSQL functions/RLS/grants/Edge Function;
-- orchestration запросов и user-safe UI state — ViewModels;
-- image preparation, date grouping и password rules — небольшие production helpers;
-- layout/formatting/countdown/open-hours presentation — SwiftUI views и helpers.
+- security, ownership, capacity, time, lifecycle, rewards, rating aggregation, and deletion live in PostgreSQL functions, RLS, grants, or the Edge Function;
+- request orchestration and user-safe UI state live in ViewModels;
+- image preparation, date grouping, and password rules live in small production helpers;
+- layout, formatting, countdowns, and opening-hours presentation live in SwiftUI views and helpers.
 
-Подробности backend: [DATABASE.md](DATABASE.md). Пользовательские сценарии: [FEATURES.md](FEATURES.md).
+See [DATABASE.md](DATABASE.md) for backend details and [FEATURES.md](FEATURES.md) for user flows.
 
-## Известные архитектурные ограничения
+## Known Architectural Trade-offs
 
-- production dependencies создаются через singleton defaults, полноценного composition root нет;
-- крупные SwiftUI files (`ParkInfoView`, `GameInfoView`, `ProfileView`) трудно изменять и review;
-- `ProfileSetup` координирует Storage и Postgres без общей транзакции;
-- Realtime событие вызывает полный reload, без batching/debounce;
-- app требует сеть и не имеет offline cache;
-- client/backend DTO связаны строковыми именами RPC и JSON полями без code generation.
+- production dependencies use singleton defaults rather than a complete composition root;
+- large SwiftUI files such as `ParkInfoView`, `GameInfoView`, and `ProfileView` are harder to review and modify;
+- Profile Setup coordinates Storage and Postgres without a shared transaction;
+- Realtime events trigger full reloads without batching or debounce;
+- the app requires a network connection and has no offline cache;
+- client/backend DTOs depend on string RPC names and JSON fields without code generation.
 
-Для портфолио 1.0 это допустимые компромиссы; дальнейший рефакторинг не должен блокировать публикацию без конкретного дефекта.
+These are acceptable trade-offs for portfolio version 1.0. Further refactoring should not block completion unless it addresses a concrete defect.

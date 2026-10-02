@@ -1,22 +1,22 @@
-# Backend GameSpot на Supabase
+# GameSpot Supabase Backend
 
-Документ описывает backend, воспроизводимый из versioned migrations в репозитории. Hosted project identifiers, operational metadata, credentials и пользовательские данные намеренно не публикуются.
+This document describes the backend reproduced by the versioned migrations in the repository. Hosted project identifiers, operational metadata, credentials, and user data are intentionally excluded.
 
-## Состав backend
+## Backend Components
 
-Supabase используется для:
+GameSpot uses Supabase for:
 
-- Auth по email/паролю;
-- PostgreSQL tables и server-side business rules;
-- PostgREST reads и RPC;
-- Realtime на основе Postgres Changes;
-- Storage bucket аватаров;
-- Edge Function удаления аккаунта;
-- `pg_cron` для жизненного цикла матчей.
+- email/password authentication;
+- PostgreSQL tables and server-side business rules;
+- PostgREST reads and RPCs;
+- Postgres Changes Realtime;
+- avatar Storage;
+- the account-deletion Edge Function;
+- `pg_cron` match-lifecycle jobs.
 
-Клиент подключается publishable key. Такой ключ не даёт привилегий сам по себе: реальные границы задают table grants, RLS и RPC grants. Service role существует только внутри Supabase Edge Function/runtime и никогда не хранится в iOS.
+The client connects with a publishable key. The key grants no privileged access by itself: table grants, RLS, and RPC grants define the actual boundary. The service role exists only inside the Supabase runtime and is never stored in the iOS app.
 
-## Схема связей
+## Relationship Diagram
 
 ```mermaid
 erDiagram
@@ -45,225 +45,178 @@ erDiagram
     PROFILES ||--o{ USER_BLOCKS : blocked_user
 ```
 
-## Таблицы
+## Tables
 
 ### `profiles`
 
-Одна прикладная запись на Auth user. PK `id` совпадает с `auth.users.id` и создаётся trigger после signup.
+One application record per Auth user. The primary key matches `auth.users.id`, and a trigger creates the row after sign-up. Important fields include the unique `username`, `avatar_url`, `favorite_sport_id`, global ratings and counters, onboarding/profile-completion flags, and timestamps.
 
-Важные поля: `username` unique, `avatar_url`, `favorite_sport_id`, global `rating`, `games_played`, `mvp_count`, `perf_points`, `is_onboarded`, `is_profile_completed`, timestamps. FK: `favorite_sport_id -> sports.id`.
-
-Клиент может UPDATE только пять колонок: `username`, `avatar_url`, `favorite_sport_id`, `is_onboarded`, `is_profile_completed`, и только своей строки. Игровую статистику меняют server functions.
+The client may update only `username`, `avatar_url`, `favorite_sport_id`, `is_onboarded`, and `is_profile_completed`, and only on its own row. Server functions own gameplay statistics.
 
 ### `user_sport_stats`
 
-Per-sport статистика пользователя: `rating`, `games_played`, `mvp_count`, `perf_points`. PK `id`; FK `user_id -> profiles.id`, `sport_id -> sports.id`. Записи для всех sports создаются trigger при создании profile. Прямых client writes нет.
+Per-sport `rating`, `games_played`, `mvp_count`, and `perf_points`. A profile trigger creates one row for each sport. Direct client writes are disabled.
 
 ### `user_reports`
 
-Приватные жалобы пользователей. Хранит reporter/target, reason, optional details,
-status и snapshot username/avatar на момент жалобы. Unique
-`(reporter_id, reported_user_id, reason)` делает повторную отправку одного типа
-идемпотентной. Клиент читает только собственные отправленные жалобы и не может
-напрямую создавать, изменять или удалять строки.
+Private user reports containing reporter, target, reason, optional details, moderation status, and a username/avatar snapshot. The unique `(reporter_id, reported_user_id, reason)` constraint makes duplicate submissions idempotent. Users can read only reports they submitted and cannot mutate rows directly.
 
 ### `user_blocks`
 
-Приватный список блокировок с PK `(blocker_id, blocked_id)` и snapshot
-username/avatar для экрана управления. Клиент читает только свои блокировки;
-изменения выполняются через проверенный RPC.
+A private block list with primary key `(blocker_id, blocked_id)` and a username/avatar snapshot for management UI. Users read only their own blocks; mutations go through a validated RPC.
 
-### `sports`
+### Catalog and Venue Tables
 
-Справочник видов спорта. Поля: unique `name`, `players_per_team`, `duration_minutes`, `minimum_players_for_rewards`. Текущий client распознаёт football, basketball, volleyball. Читается публично; изменяется только административно.
-
-### `parks`
-
-Справочник площадок: unique `name`, latitude/longitude, address, `is_active`, `has_lighting`. Карта выбирает только active rows. Читается публично.
-
-### `parks_sports`
-
-Связь many-to-many park ↔ sport. PK bigint `id`; FK `park_id`, `sport_id`. Определяет допустимые sports для создания игры на площадке.
-
-### `parks_hour`
-
-Недельное расписание: `day_of_week`, `open_hour`, `close_time`, `is_closed`, FK `park_id`. Интерпретация open/closed выполняется в iOS presentation logic.
-
-### `parks_images`
-
-URL изображений площадки и `is_main`, FK `park_id`. Это не avatar Storage; здесь хранятся только ссылки каталога.
-
-### `parks_ratings`
-
-Кэш агрегатов по площадке: average/count для quality, facilities, activity, `overall_avg`, `updated_at`, FK `park_id`. Клиент не пишет таблицу напрямую; `rate_park` пересчитывает агрегат из reviews.
-
-### `park_reviews`
-
-Индивидуальная оценка пользователя 1–5 по трём категориям. PK UUID; FK `user_id -> profiles`, `park_id -> parks`; unique `(user_id, park_id)`. Прямых client privileges/policies на запись нет: доступ идёт через `rate_park`.
+- `sports` defines each sport, team size, duration, and minimum players for rewards.
+- `parks` stores venue name, coordinates, address, activity status, and lighting.
+- `parks_sports` is the many-to-many park/sport relationship.
+- `parks_hour` stores weekly opening hours.
+- `parks_images` stores catalog image URLs and the main-image flag.
+- `parks_ratings` caches aggregate venue ratings.
+- `park_reviews` stores one 1–5 review per user and park; writes go only through `rate_park`.
 
 ### `games`
 
-Матч: park, creator, sport, `starts_at`, duration, capacity и state flags:
+A match references a park, creator, and sport and stores `starts_at`, duration, capacity, and lifecycle flags: `is_in_progress`, `is_finished`, `mvp_voting_open`, `participation_rewards_given`, and `is_processed`.
 
-- `is_in_progress`;
-- `is_finished`;
-- `mvp_voting_open`;
-- `participation_rewards_given`;
-- `is_processed`.
-
-PK UUID; FK park/sport и nullable `creator_id -> profiles`. Nullable creator позволяет сохранить shared match history после удаления аккаунта. Direct client writes запрещены.
+`creator_id` is nullable so shared match history can survive account deletion. Direct client writes are disabled.
 
 ### `game_members`
 
-Участник матча и команда enum `Team Alpha`/`Team Beta`. Также хранит snapshot результата: `rating_change`, `perf_points_earned`, `was_mvp`. PK UUID; FK user/game. В production существуют два одинаковых unique constraints на `(game_id,user_id)` — функционально безопасно, но это technical debt.
+Stores membership and the `Team Alpha`/`Team Beta` enum, plus result snapshots: `rating_change`, `perf_points_earned`, and `was_mvp`. The production schema contains two equivalent unique constraints on `(game_id, user_id)`; this is harmless but remains technical debt.
 
 ### `game_mvp_votes`
 
-Один голос участника за другого участника: `voter_id`, `voted_id`, `game_id`, timestamp. Unique `(game_id,voter_id)` обеспечивает один голос. Self-vote и membership дополнительно проверяет RPC.
+Stores one vote per participant and game. Unique `(game_id, voter_id)` enforces one vote, while the RPC also validates membership and prevents self-voting.
 
-## Functions и RPC
+## Functions and RPCs
 
-### Авторизованные изменения, доступные клиенту
+### Authenticated Mutations
 
-| Function | Поведение |
+| Function | Behavior |
 | --- | --- |
-| `create_game(park,sport,starts_at)` | проверяет auth, будущее время, доступность sport, overlap; создаёт game и creator membership |
-| `join_game(game,team)` | блокирует game row, проверяет pre-start state, duplicate и team capacity |
-| `leave_game(game)` | разрешает удалить только собственное membership до старта |
-| `vote_mvp(game,user)` | проверяет voting window, membership, target, self-vote и duplicate |
-| `rate_park(user,park,...)` | требует `auth.uid() = user`, валидирует 1–5, upsert review и пересчитывает aggregate |
-| `has_user_rated(user,park)` | возвращает наличие review; используется для формы rating |
-| `submit_user_report(user,reason,details)` | проверяет auth/target/reason, безопасно игнорирует duplicate и создаёт pending report |
-| `set_user_block(user,is_blocked)` | проверяет auth/self-block и идемпотентно создаёт или удаляет private block |
-| `is_username_available(username)` | проверяет format/reserved/offensive policy и unique username без раскрытия `profiles` |
+| `create_game(park,sport,starts_at)` | Validates identity, future time, available sport, and overlap; creates the game and creator membership |
+| `join_game(game,team)` | Locks the game row and validates state, duplicate membership, and team capacity |
+| `leave_game(game)` | Removes only the caller's membership before the match starts |
+| `vote_mvp(game,user)` | Validates the voting window, membership, target, self-vote, and duplicate vote |
+| `rate_park(user,park,...)` | Requires `auth.uid() = user`, validates 1–5 values, upserts the review, and rebuilds aggregates |
+| `has_user_rated(user,park)` | Returns whether the user has already reviewed the venue |
+| `submit_user_report(user,reason,details)` | Validates identity, target, and reason and safely ignores a duplicate |
+| `set_user_block(user,is_blocked)` | Prevents self-blocking and idempotently creates or removes a private block |
+| `is_username_available(username)` | Checks format, reserved/offensive rules, and uniqueness without exposing profiles |
 
-Это `SECURITY DEFINER` API-поверхность. Execute есть у `authenticated`, а внутри mutating functions проверяется identity/state. Поэтому соответствующие Advisor WARN являются ожидаемыми, но каждое изменение function body требует повторного security review.
+These functions form a `SECURITY DEFINER` API surface. Only `authenticated` receives execute permission, and every mutation rechecks identity and state internally. Related Advisor warnings are therefore expected, but any body change requires another security review.
 
-### Чтение для авторизованных пользователей
+### Authenticated Reads
 
-| Function | Результат |
+| Function | Result |
 | --- | --- |
-| `get_games_by_park(park)` | список игр площадки с sport и joined count |
-| `get_user_games()` | игры текущего `auth.uid()` |
-| `get_game_details(game)` | game, park, roster, flags, highlights, vote state и MVP |
-| `get_recent_matches()` | последние три завершённых матча текущего пользователя |
+| `get_games_by_park(park)` | Venue games with sport and joined count |
+| `get_user_games()` | Games for the current `auth.uid()` |
+| `get_game_details(game)` | Game, venue, roster, flags, highlights, voting state, and MVP |
+| `get_recent_matches()` | The caller's three latest completed matches |
 
-Эти функции работают как `SECURITY INVOKER`, поэтому подчиняются grants/RLS вызывающего пользователя. `get_game_by_id` существует, но iOS его сейчас не вызывает.
+These functions use `SECURITY INVOKER` and therefore follow the caller's grants and RLS. `get_game_by_id` exists but is not currently used by iOS.
 
-### Внутренние функции
+### Internal Functions
 
-| Function | Кто вызывает |
+| Function | Caller |
 | --- | --- |
-| `handle_new_user()` | trigger после `auth.users INSERT`; создаёт profile |
-| `create_user_sport_stats()` | trigger после `profiles INSERT`; создаёт sport stats |
+| `handle_new_user()` | Trigger after `auth.users INSERT` |
+| `create_user_sport_stats()` | Trigger after `profiles INSERT` |
 | `start_games()` | cron/service role |
 | `finish_games()` | cron/service role |
 | `open_mvp_voting()` | cron/service role |
 | `process_finished_games()` | cron/service role |
-| `delete_user_data(user)` | только service role из Edge Function |
-| `rls_auto_enable()` | hosted event trigger helper; client execute отозван |
+| `delete_user_data(user)` | Service role from the Edge Function only |
+| `rls_auto_enable()` | Hosted event-trigger helper; client execute revoked |
 
-У всех application functions фиксированный `search_path = public, pg_temp`; у platform helper — `pg_catalog`.
+Application functions use a fixed `search_path = public, pg_temp`; the platform helper uses `pg_catalog`.
 
-## Жизненный цикл матча
+## Match Lifecycle
 
-Каждую минуту работают четыре jobs:
+Four jobs run every minute:
 
-| Job | Schedule | Команда |
+| Job | Schedule | Command |
 | --- | --- | --- |
 | `start-games` | `* * * * *` | `select start_games();` |
 | `finish-games` | `* * * * *` | `select finish_games();` |
 | `open-mvp-voting` | `* * * * *` | `select open_mvp_voting();` |
 | `process-finished-games` | `* * * * *` | `select process_finished_games();` |
 
-Последовательность:
+1. Join and Leave are allowed before `starts_at`.
+2. `start_games` marks the match in progress.
+3. `finish_games` completes it after the configured duration.
+4. `open_mvp_voting` checks the minimum-player threshold. Insufficient matches are processed without rewards; valid matches receive participation rewards once and open voting.
+5. Participants vote during the three-minute post-match window.
+6. `process_finished_games` chooses the winner, awards MVP rewards once, and marks the match processed.
 
-1. До `starts_at` разрешены Join/Leave.
-2. `start_games` ставит `is_in_progress`.
-3. После полной duration `finish_games` завершает игру.
-4. `open_mvp_voting` проверяет minimum players. При нехватке игра сразу processed без rewards. Иначе participation rewards начисляются один раз и открывается voting.
-5. Участники голосуют в течение 3 минут после окончания.
-6. `process_finished_games` выбирает лидера, начисляет MVP rewards один раз и ставит processed.
+Equal vote counts use the player UUID as a deterministic tie-breaker.
 
-Tie-break при равных голосах — UUID игрока, а не random, поэтому повторяемость сохранена.
-
-## Триггеры
+## Triggers
 
 - `auth.users AFTER INSERT -> handle_new_user()`;
 - `profiles AFTER INSERT -> create_user_sport_stats()`;
-- hosted event trigger `ensure_rls` вызывает `rls_auto_enable()` для новых таблиц и не доступен клиентским ролям.
+- hosted event trigger `ensure_rls` calls `rls_auto_enable()` for new tables and is unavailable to client roles.
 
-## RLS и grants
+## RLS and Grants
 
-Все public application tables имеют RLS.
+Every public application table has RLS enabled.
 
-- `anon`: SELECT только catalog tables `parks`, `parks_hour`, `parks_images`, `parks_ratings`, `parks_sports`, `sports`.
-- `authenticated`: catalog + game/profile/stat reads, необходимые UI и Realtime.
-- прямой INSERT/UPDATE/DELETE server-owned game/rating/stat tables у client roles отозван;
-- `profiles` UPDATE ограничен own row и безопасными columns;
-- blocked profiles скрываются из profile-backed social reads текущего пользователя;
-- `user_reports` и `user_blocks` доступны только owner rows; direct client mutations отозваны;
-- `park_reviews` намеренно имеет RLS без direct policy, потому что запись только через `rate_park`;
-- client-facing state mutations выполняются через проверенные RPC.
+- `anon` can read only catalog tables: `parks`, `parks_hour`, `parks_images`, `parks_ratings`, `parks_sports`, and `sports`.
+- `authenticated` can read the catalog plus the game/profile/stat data required by UI and Realtime.
+- Direct client INSERT/UPDATE/DELETE rights on server-owned game, rating, and statistics tables are revoked.
+- Profile updates are limited to the caller's row and safe columns.
+- Blocked profiles are hidden from profile-backed social reads for the current user.
+- `user_reports` and `user_blocks` expose only owner rows and no direct client mutations.
+- `park_reviews` intentionally has RLS without a direct write policy because `rate_park` is the only write path.
+- State mutations use validated RPCs.
 
-Публичное чтение profiles/stats для signed-in пользователей необходимо roster/profile Realtime. Это означает, что username/avatar/game-visible stats не являются приватными внутри приложения; это отражено в Privacy Policy.
+Signed-in users can read the username, avatar, and game-visible statistics required by rosters and profiles. The Privacy Policy documents this visibility.
 
-## Хранилище `avatars`
+## Avatar Storage
 
-- bucket public для download по URL;
-- путь объекта: `{lowercased-user-uuid}/avatar.jpg`;
-- серверное ограничение: 5 MiB;
-- разрешённые MIME-типы: `image/jpeg`, `image/png`;
-- metadata SELECT, INSERT, UPDATE, DELETE доступны только `authenticated` owner собственной папки;
-- iOS всегда загружает JPEG с `upsert: true` и добавляет query parameter для cache busting.
+- public bucket for URL-based downloads;
+- object path `{lowercased-user-uuid}/avatar.jpg`;
+- 5 MiB server limit;
+- allowed MIME types: `image/jpeg`, `image/png`;
+- metadata SELECT/INSERT/UPDATE/DELETE restricted to the authenticated owner folder;
+- iOS uploads JPEG with `upsert: true` and cache-busting query parameters.
 
-Public bucket означает: знающий URL может загрузить изображение без auth. Bucket listing и чужие writes при этом закрыты. Если avatars должны стать строго приватными, потребуется private bucket + signed URLs и изменение client model.
+A public bucket means anyone who knows the exact URL can download an image, although listing and foreign writes remain blocked. Strict privacy would require a private bucket, signed URLs, and a client-model change.
 
-## Функция Edge Function `delete-account`
+## Account-Deletion Edge Function
 
-Edge Function `delete-account` требует валидный JWT и не принимает identity из request body.
+`delete-account` accepts only DELETE and requires a valid JWT. Identity comes from JWT claims, never from the request body.
 
-Принимается только DELETE. Gateway проверяет JWT; handler берёт user ID из claims, а не request body. Порядок:
+1. Remove `{userId}/avatar.jpg`.
+2. Call service-role `delete_user_data(userId)`.
+3. Delete the Auth user through the Admin API.
+4. Return `{deleted:true}`.
 
-1. удалить `{userId}/avatar.jpg`;
-2. вызвать service-role `delete_user_data(userId)`;
-3. удалить Auth user через Admin API;
-4. вернуть `{deleted:true}`.
+Shared games remain with `creator_id = NULL`; profile-related rows are removed by cascades; venue aggregates are rebuilt after review deletion. The operation tolerates a missing avatar and partially completed prior cleanup.
 
-Shared games сохраняются с `creator_id = NULL`; связанные rows удаляются через profile/FK cascades; park aggregates после удаления reviews пересчитываются. Операция retry-safe для уже удалённого avatar/partial data cleanup насколько допускают Supabase APIs.
+## Realtime Publication
 
-## Публикация Realtime
+`supabase_realtime` includes `games`, `game_members`, `game_mvp_votes`, `profiles`, `sports`, and `user_sport_stats`. Client subscriptions are documented in [ARCHITECTURE.md](ARCHITECTURE.md). `sports` is published even though the current runtime does not subscribe to it directly.
 
-В `supabase_realtime` включены:
+## Migration History
 
-- `games`;
-- `game_members`;
-- `game_mvp_votes`;
-- `profiles`;
-- `sports`;
-- `user_sport_stats`.
+1. `20260815151015_production_baseline.sql` — complete baseline schema.
+2. `20260815152151_remove_debug_rpcs.sql` — removes debug RPCs.
+3. `20260815152736_harden_rpc_privileges.sql` — RPC grants, invoker behavior, and search paths.
+4. `20260815153230_harden_table_access.sql` — table grants, RLS, and column privileges.
+5. `20260815153849_fix_game_lifecycle.sql` — lifecycle and MVP processing.
+6. `20260815155612_add_account_deletion.sql` — service-only cleanup.
+7. `20260815170136_harden_avatar_storage.sql` — bucket and policies.
+8. `20260815191000_harden_function_search_paths.sql` — full search-path hardening.
+9. `20260912084515_restrict_rls_auto_enable.sql` — hosted helper privileges.
+10. `20260914145729_add_user_safety.sql` — reports, blocks, username policy, and profile visibility.
+11. `20260916081437_task_20_optimize_advisors.sql` — indexes, canonical constraints, and policy cleanup.
 
-Клиентские подписки описаны в [ARCHITECTURE.md](ARCHITECTURE.md). `sports` опубликована, хотя отдельной runtime subscription на неё сейчас нет.
+New environments apply the complete migration set. Every schema change must add a migration; already applied files are never edited. Never run `db reset` against the hosted production project.
 
-## Миграции
-
-Локальный порядок:
-
-1. `20260815151015_production_baseline.sql` — полная исходная схема.
-2. `20260815152151_remove_debug_rpcs.sql` — удаление debug RPC.
-3. `20260815152736_harden_rpc_privileges.sql` — права RPC, режим invoker и search path.
-4. `20260815153230_harden_table_access.sql` — права таблиц, RLS и права колонок.
-5. `20260815153849_fix_game_lifecycle.sql` — lifecycle и MVP.
-6. `20260815155612_add_account_deletion.sql` — очистка, доступная только служебной роли.
-7. `20260815170136_harden_avatar_storage.sql` — bucket и policies.
-8. `20260815191000_harden_function_search_paths.sql` — полный search-path pass.
-9. `20260912084515_restrict_rls_auto_enable.sql` — права вспомогательной hosted-функции.
-10. `20260914145729_add_user_safety.sql` — reports, blocks, username policy и profile visibility.
-11. `20260916081437_task_20_optimize_advisors.sql` — indexes, canonical constraints и policy cleanup.
-
-Новый environment создаётся полным локальным набором migrations. Новые изменения всегда добавляются новой migration; уже применённые файлы не редактируются. Hosted database нельзя сбрасывать командой `db reset`.
-
-## Локальное воспроизведение и тесты
+## Local Reproduction and Tests
 
 ```bash
 supabase start
@@ -278,19 +231,12 @@ supabase db diff --local --schema public,storage
 supabase stop
 ```
 
-Набор tests: RPC privileges, table/RLS privileges, lifecycle, account deletion, avatar Storage, function security и user safety. Подробная установка — [SETUP.md](SETUP.md).
+The suite covers RPC privileges, RLS/table privileges, lifecycle processing, account deletion, avatar Storage, function security, and user safety. See [SETUP.md](SETUP.md) for installation details.
 
-## Проверка безопасности
+Authenticated `SECURITY DEFINER` functions are security-critical API endpoints: each has a fixed search path, explicit execute grants, and internal identity/invariant checks. Performance indexes are added from actual query plans rather than mechanically for every column.
 
-Локальная проверка включает database lint, regression scripts для grants/RLS/RPC,
-полный lifecycle игры, удаление аккаунта, Storage policies и user safety.
-Authenticated `SECURITY DEFINER` functions считаются частью security-critical API:
-для них фиксируется `search_path`, явно назначается `EXECUTE`, а identity и
-инварианты повторно проверяются внутри функции. Performance-индексы добавляются
-по реальным query plans, а не механически для каждой колонки.
+Official references:
 
-Официальные remediation pages:
-
-- [Проверка базы данных Supabase](https://supabase.com/docs/guides/database/database-linter)
-- [Управление доступом к Storage](https://supabase.com/docs/guides/storage/security/access-control)
-- [Безопасность паролей](https://supabase.com/docs/guides/auth/password-security)
+- [Supabase Database Linter](https://supabase.com/docs/guides/database/database-linter)
+- [Storage access control](https://supabase.com/docs/guides/storage/security/access-control)
+- [Password security](https://supabase.com/docs/guides/auth/password-security)
