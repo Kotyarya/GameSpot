@@ -58,8 +58,6 @@ jobs:
           )"
 
           echo "SIMULATOR_UDID=$simulator_udid" >> "$GITHUB_ENV"
-          xcrun simctl boot "$simulator_udid" 2>/dev/null || true
-          xcrun simctl bootstatus "$simulator_udid" -b
 
       - name: Run unit tests
         run: |
