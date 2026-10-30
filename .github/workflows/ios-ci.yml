@@ -21,7 +21,6 @@ jobs:
     timeout-minutes: 45
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.5.app/Contents/Developer
-      DERIVED_DATA_PATH: ${{ runner.temp }}/GameSpotDerivedData
 
     steps:
       - name: Check out repository
@@ -70,7 +69,7 @@ jobs:
             -scheme "Game Spot" \
             -configuration Debug \
             -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
-            -derivedDataPath "$DERIVED_DATA_PATH" \
+            -derivedDataPath "$RUNNER_TEMP/GameSpotDerivedData" \
             -resultBundlePath "$RUNNER_TEMP/GameSpot-UnitTests.xcresult" \
             -parallel-testing-enabled NO \
             -only-testing:'Game SpotTests' \
@@ -84,7 +83,7 @@ jobs:
             -scheme "Game Spot" \
             -configuration Debug \
             -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
-            -derivedDataPath "$DERIVED_DATA_PATH" \
+            -derivedDataPath "$RUNNER_TEMP/GameSpotDerivedData" \
             -resultBundlePath "$RUNNER_TEMP/GameSpot-UITests.xcresult" \
             -parallel-testing-enabled NO \
             -only-testing:'Game SpotUITests/ContentStateFlowUITests' \
@@ -100,7 +99,7 @@ jobs:
             -scheme "Game Spot" \
             -configuration Release \
             -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath "$DERIVED_DATA_PATH" \
+            -derivedDataPath "$RUNNER_TEMP/GameSpotDerivedData" \
             CODE_SIGNING_ALLOWED=NO
 
       - name: Upload test results
