@@ -1,5 +1,7 @@
 # GameSpot
 
+[![iOS CI](https://github.com/Kotyarya/GameSpot/actions/workflows/ios-ci.yml/badge.svg)](https://github.com/Kotyarya/GameSpot/actions/workflows/ios-ci.yml)
+
 GameSpot is a native iOS app for finding people to play football or basketball with at free outdoor sports courts. A player can discover a park, create or join a game, choose a team, follow the match lifecycle, vote for an MVP, and build a sport-specific rating.
 
 This repository is a finished portfolio project. It demonstrates a complete SwiftUI client, a versioned Supabase backend, production-oriented security rules, and automated testing. It is not currently distributed through the App Store.
@@ -88,6 +90,14 @@ The client reads `SupabaseURL` and `SupabasePublishableKey` from `Game-Spot-Info
 For a different Supabase project, replace the two public client values and apply the versioned migrations. The exact setup, local backend, physical-device, and test instructions are in [Setup](docs/SETUP.md).
 
 ## Verification
+
+Every push and pull request to `main` runs the `iOS CI` workflow from a clean GitHub-hosted macOS checkout. CI uses Xcode 26.5 and an available iOS Simulator to run:
+
+- the complete `Game SpotTests` unit target;
+- deterministic, account-free UI suites for content states, location permission, and repeated team actions;
+- an unsigned Release build for the iOS Simulator.
+
+Credential-dependent authenticated UI journeys are intentionally excluded from CI. They require an isolated, fully onboarded Supabase account and are run manually so credentials never enter the repository or a public workflow. Test result bundles are retained as workflow artifacts for seven days.
 
 Run the unit target:
 
